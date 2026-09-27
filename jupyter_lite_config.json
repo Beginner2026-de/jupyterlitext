@@ -1,0 +1,16 @@
+{
+  "jupyter-lite": {
+    "apps": ["lab", "notebook"],
+    "federated_extensions": [
+      {
+        "name": "jupyterlite-obsidian-markdown",
+        "load": "static/jupyterlite_obsidian_markdown/remoteEntry.js"
+      }
+    ],
+    "settingsOverrides": {
+      "@jupyterlab/notebook-extension:tracker": {
+        "recordTiming": true
+      }
+    }
+  }
+}
