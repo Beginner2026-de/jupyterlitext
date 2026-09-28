@@ -43,6 +43,8 @@ jobs:
           npm install
           npm run build:lib
           python -m jupyter labextension build .
+          mkdir -p jupyterlite_obsidian_markdown
+          echo 'def _jupyter_labextension_paths(): return [{"src": "labextension", "dest": "jupyterlite-obsidian-markdown"}]' > jupyterlite_obsidian_markdown/__init__.py
           touch LICENSE README.md
           python -m pip install .
           cd ..
