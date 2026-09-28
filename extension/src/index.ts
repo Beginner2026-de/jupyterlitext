@@ -211,14 +211,39 @@ function injectStyles(): void {
       stroke: currentColor;
     }
 
-    /* Split-View Container (2 Spalten: Links Editor, Rechts Vorschau) */
+    /* Split-View Container (2 Spalten nebeneinander: Links Editor, Rechts Vorschau auf gleicher Zeilenhöhe) */
     .obsidian-cell-split {
       display: grid !important;
-      grid-template-columns: 1fr 1fr !important;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+      grid-template-rows: auto !important;
       gap: 14px !important;
       align-items: stretch !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
     }
-    .obsidian-split-preview {
+    /* Prompt in Split-Ansicht ausblenden, damit genau 2 Spalten nebeneinander stehen */
+    .obsidian-cell-split > .jp-InputPrompt,
+    .obsidian-cell-split > .jp-InputArea-prompt,
+    .obsidian-cell-split > .jp-Cell-prompt {
+      display: none !important;
+    }
+    /* Linke Spalte (Spalte 1, Zeile 1): Editor links */
+    .obsidian-cell-split > .jp-InputArea-editor,
+    .obsidian-cell-split > .jp-Editor,
+    .obsidian-cell-split > .jp-CodeMirrorEditor {
+      grid-column: 1 / 2 !important;
+      grid-row: 1 !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
+    /* Rechte Spalte (Spalte 2, Zeile 1): Split-Vorschau rechts auf gleicher Zeilenhöhe */
+    .obsidian-cell-split > .obsidian-split-preview {
+      grid-column: 2 / 3 !important;
+      grid-row: 1 !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
       background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
       border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.2));
       border-radius: 8px;
@@ -232,7 +257,33 @@ function injectStyles(): void {
       line-height: 1.6;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     }
+
+    /* Live Preview Modus: Editor oben, Live-Vorschau direkt UNTEREINANDER darunter */
+    .obsidian-cell-live {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    /* Prompt in Live Preview ausblenden, damit Editor und Vorschau volle 100% Breite nutzen */
+    .obsidian-cell-live > .jp-InputPrompt,
+    .obsidian-cell-live > .jp-InputArea-prompt,
+    .obsidian-cell-live > .jp-Cell-prompt {
+      display: none !important;
+    }
+    .obsidian-cell-live > .jp-InputArea-editor,
+    .obsidian-cell-live > .jp-Editor,
+    .obsidian-cell-live > .jp-CodeMirrorEditor {
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
+    }
     .obsidian-live-preview {
+      display: block !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
       background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
       border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.2));
       border-radius: 8px;
@@ -850,6 +901,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
     if (existingLive) existingLive.remove();
     if (editorNode) {
       editorNode.classList.remove('obsidian-cell-split');
+      editorNode.classList.remove('obsidian-cell-live');
     }
     cell.rendered = true;
     showObsidianToast('📖 Gelesen (Leseansicht)');
@@ -872,6 +924,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
     if (existingLive) existingLive.remove();
     if (editorNode) {
       editorNode.classList.remove('obsidian-cell-split');
+      editorNode.classList.remove('obsidian-cell-live');
     }
     cell.editor?.focus();
     showObsidianToast('📝 Source-Modus (Nur Quelltext)');
@@ -881,6 +934,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
   if (mode === 'split') {
     if (existingLive) existingLive.remove();
     if (editorNode) {
+      editorNode.classList.remove('obsidian-cell-live');
       editorNode.classList.add('obsidian-cell-split');
 
       let splitPreview = existingSplit as HTMLElement | null;
@@ -907,6 +961,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
     if (existingSplit) existingSplit.remove();
     if (editorNode) {
       editorNode.classList.remove('obsidian-cell-split');
+      editorNode.classList.add('obsidian-cell-live');
 
       let livePreview = existingLive as HTMLElement | null;
       if (!livePreview) {
