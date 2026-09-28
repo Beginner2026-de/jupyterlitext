@@ -219,25 +219,25 @@ function injectStyles(): void {
       align-items: stretch !important;
     }
     .obsidian-split-preview {
-      background: #09090b;
-      border: 1px solid #27272a;
+      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.05));
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       border-radius: 8px;
       padding: 12px 16px;
       overflow-y: auto;
       max-height: 520px;
       min-height: 180px;
-      color: #f4f4f5;
+      color: var(--jp-content-font-color1, inherit);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       line-height: 1.6;
     }
     .obsidian-live-preview {
-      background: #09090b;
-      border: 1px solid #27272a;
+      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.05));
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       border-radius: 8px;
       padding: 12px 16px;
       margin-top: 10px;
-      color: #f4f4f5;
+      color: var(--jp-content-font-color1, inherit);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       line-height: 1.6;
@@ -245,12 +245,12 @@ function injectStyles(): void {
     .obsidian-preview-header {
       font-size: 11px;
       font-weight: 600;
-      color: #a1a1aa;
+      color: var(--jp-ui-font-color2, #a1a1aa);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       margin-bottom: 10px;
       padding-bottom: 6px;
-      border-bottom: 1px solid #27272a;
+      border-bottom: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -526,13 +526,14 @@ function injectStyles(): void {
       color: #ffffff;
     }
 
-    /* Block-Formeln Hover-Container & Edit-Button */
+    /* Block-Formeln Hover-Container & Edit-Button - Passt sich dem Theme an! */
     .obsidian-math-block-wrapper {
       position: relative;
       margin: 12px 0;
-      padding: 12px 16px;
-      background: #09090b;
-      border: 1px solid #27272a;
+      padding: 14px 16px;
+      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.06));
+      color: var(--jp-content-font-color1, inherit);
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       border-radius: 8px;
       overflow-x: auto;
       text-align: center;
@@ -541,37 +542,44 @@ function injectStyles(): void {
     }
     .obsidian-math-block-wrapper:hover {
       border-color: #f59e0b;
-      box-shadow: 0 0 15px rgba(245, 158, 11, 0.12);
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.15);
     }
     .obsidian-math-block-wrapper:hover .obsidian-math-edit-btn {
       opacity: 1;
       border-color: #f59e0b;
-      color: #fef08a;
+      color: #f59e0b;
     }
+    .obsidian-math-block-wrapper .MathJax,
+    .obsidian-math-block-wrapper mjx-container,
+    .obsidian-math-block-wrapper .katex,
+    .obsidian-math-block-wrapper .jp-RenderedMath {
+      color: var(--jp-content-font-color1, inherit) !important;
+    }
+
     .obsidian-math-edit-btn {
       position: absolute;
       top: 6px;
       right: 6px;
-      background: #27272a;
-      color: #fbbf24;
-      border: 1px solid #3f3f46;
+      background: var(--jp-layout-color1, #27272a);
+      color: var(--jp-ui-font-color1, #d4d4d8);
+      border: 1px solid var(--jp-border-color1, #3f3f46);
       border-radius: 6px;
       padding: 4px 9px;
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
-      opacity: 0.85;
+      opacity: 0;
       transition: all 0.15s ease;
       z-index: 10;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
       display: inline-flex;
       align-items: center;
       gap: 5px;
     }
     .obsidian-math-edit-btn:hover {
-      background: #3f3f46;
-      color: #fef08a;
-      border-color: #52525b;
+      background: var(--jp-layout-color2, #3f3f46);
+      color: #f59e0b;
+      border-color: #f59e0b;
     }
     .obsidian-math-edit-btn svg {
       stroke: currentColor;
@@ -586,11 +594,18 @@ function injectStyles(): void {
       margin: 0 2px;
       border-radius: 4px;
       cursor: pointer;
+      color: var(--jp-content-font-color1, inherit);
       transition: background 0.15s ease, box-shadow 0.15s ease;
     }
     .obsidian-inline-math-wrapper:hover {
-      background: rgba(245, 158, 11, 0.15) !important;
-      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.12) !important;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.35);
+    }
+    .obsidian-inline-math-wrapper .MathJax,
+    .obsidian-inline-math-wrapper mjx-container,
+    .obsidian-inline-math-wrapper .katex,
+    .obsidian-inline-math-wrapper .jp-RenderedMath {
+      color: var(--jp-content-font-color1, inherit) !important;
     }
     .obsidian-inline-math-wrapper .obsidian-inline-edit-btn {
       display: inline-flex;
