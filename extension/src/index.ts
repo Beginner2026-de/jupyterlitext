@@ -15,7 +15,7 @@ const extension: JupyterFrontEndPlugin<void> = {
   description: 'Obsidian-like Live Preview, LaTeX math menus, and interactive tables for Markdown cells',
   autoStart: true,
   requires: [INotebookTracker],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
+  activate: (_app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('JupyterLite Obsidian Markdown Extension aktiviert!');
 
     tracker.widgetAdded.connect((_, notebookPanel) => {
