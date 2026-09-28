@@ -24,11 +24,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      # Baut die Extension mit npm & jupyter
       - name: Build & Install Obsidian Extension
+        if: hashFiles('extension/package.json') != ''
         run: |
           cd extension
           npm install
-          npm run build
+          npm run build:lib
+          jupyter labextension build .
           pip install -e .
           cd ..
       - name: Install the dependencies
