@@ -354,16 +354,33 @@ function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
 
 function insertAroundSelection(cell: MarkdownCell, before: string, after: string, defaultText: string): void {
   const editor = cell.editor;
-  if (!editor) return;
+  if (!editor) {
+    const current = cell.model.sharedModel.getSource();
+    cell.model.sharedModel.setSource(current + '\n' + before + defaultText + after);
+    return;
+  }
 
-  const selection = editor.getSelection();
-  const src = editor.model.sharedModel.getSource();
-  const startOffset = editor.getOffsetAt(selection.start);
-  const endOffset = editor.getOffsetAt(selection.end);
-  const selectedText = src.substring(startOffset, endOffset);
+  let selectedText = '';
+  try {
+    const selection = editor.getSelection();
+    if (selection && typeof editor.getOffsetAt === 'function') {
+      const src = cell.model.sharedModel.getSource();
+      const startOffset = editor.getOffsetAt(selection.start);
+      const endOffset = editor.getOffsetAt(selection.end);
+      selectedText = src.substring(startOffset, endOffset);
+    }
+  } catch (_e) {
+    selectedText = '';
+  }
 
   const textToInsert = selectedText ? `${before}${selectedText}${after}` : `${before}${defaultText}${after}`;
-  editor.replaceSelection(textToInsert);
+
+  if (typeof editor.replaceSelection === 'function') {
+    editor.replaceSelection(textToInsert);
+  } else {
+    const current = cell.model.sharedModel.getSource();
+    cell.model.sharedModel.setSource(current + '\n' + textToInsert);
+  }
 }
 
 function openMathDialog(cell: MarkdownCell): void {
