@@ -1050,8 +1050,8 @@ function extractAllFormulasFromMarkdown(src: string): ExtractedFormula[] {
     });
   }
 
-  // 2. Inline-Formeln: $ ... $
-  const inlineRegex = /(?<!\\)\$(?!\$)(.+?)(?<!\\)\$/g;
+  // 2. Inline-Formeln: $ ... $ (keine Newlines, keine angrenzenden $$)
+  const inlineRegex = /(?<![\$\\])\$(?!\$)([^\$\n]+?)(?<![\$\\])\$(?!\$)/g;
   let iMatch: RegExpExecArray | null;
   while ((iMatch = inlineRegex.exec(src)) !== null) {
     const start = iMatch.index;
@@ -1074,21 +1074,23 @@ function extractAllFormulasFromMarkdown(src: string): ExtractedFormula[] {
 /**
  * INTERAKTIVER FORMEL-EDITOR (Erstellen & In-Place Bearbeiten mit Live KaTeX)
  */
-function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string, initialLatex?: string, initialIsBlock?: boolean): void {
+function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string, initialLatex?: string, initialIsBlock?: boolean, initialStart?: number, initialEnd?: number): void {
   const existing = document.getElementById('obsidian-math-modal');
   if (existing) existing.remove();
 
   let isBlock = initialIsBlock !== undefined ? initialIsBlock : true;
   let currentLatex = initialLatex !== undefined && initialLatex !== '' ? initialLatex : '\\mathbf{A}\\mathbf{x} = \\mathbf{b}';
 
-  if (initialFormulaMarkdown && (!initialLatex || initialLatex === '')) {
+  if (initialFormulaMarkdown) {
     const trimmed = initialFormulaMarkdown.trim();
     if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length >= 4) {
       currentLatex = trimmed.slice(2, -2).trim();
       isBlock = true;
-    } else if (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length >= 2) {
+    } else if (trimmed.startsWith('$') && trimmed.endsWith('$') && trimmed.length >= 2 && !trimmed.startsWith('$$')) {
       currentLatex = trimmed.slice(1, -1).trim();
-      isBlock = false;
+      if (initialIsBlock === undefined) {
+        isBlock = false;
+      }
     }
   }
 
@@ -1216,19 +1218,55 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
   modalOverlay.querySelector('#math-save')?.addEventListener('click', () => {
     const isBlockMode = (modalOverlay.querySelector('input[name="math-mode"]:checked') as HTMLInputElement)?.value === 'block';
     const cleanTex = texInput.value.trim();
-    const formatted = isBlockMode ? `\n$$\n${cleanTex}\n$$\n` : `$${cleanTex}$`;
+    // Block-Formeln in Markdown immer isoliert auf eigenen Zeilen halten, damit sie stabil als Block gerendert werden
+    const formatted = isBlockMode
+      ? (cleanTex.includes('\n') ? `\n\n$$\n${cleanTex}\n$$\n\n` : `\n\n$$\n${cleanTex}\n$$\n\n`)
+      : `$${cleanTex}$`;
 
     const src = cell.model.sharedModel.getSource();
 
-    if (initialFormulaMarkdown && src.includes(initialFormulaMarkdown)) {
-      cell.model.sharedModel.setSource(src.replace(initialFormulaMarkdown, formatted));
-    } else if (initialFormulaMarkdown && src.includes(initialFormulaMarkdown.trim())) {
-      cell.model.sharedModel.setSource(src.replace(initialFormulaMarkdown.trim(), formatted));
-    } else {
+    let replaced = false;
+
+    // Priorität 1: Exakte Zeichenkoordinaten (Start / End) prüfen
+    if (initialStart !== undefined && initialEnd !== undefined && initialStart >= 0 && initialEnd > initialStart) {
+      if (initialFormulaMarkdown) {
+        const sliceAtCoords = src.substring(initialStart, initialEnd);
+        if (sliceAtCoords === initialFormulaMarkdown || sliceAtCoords.trim() === initialFormulaMarkdown.trim()) {
+          cell.model.sharedModel.setSource(src.substring(0, initialStart) + formatted + src.substring(initialEnd));
+          replaced = true;
+        }
+      }
+    }
+
+    // Priorität 2: Vorkommen der Ausgangsformel am nächsten zur ursprünglichen Startposition
+    if (!replaced && initialFormulaMarkdown) {
+      const target = initialFormulaMarkdown.trim();
+      let bestIdx = -1;
+      let minDistance = Infinity;
+      let searchPos = 0;
+
+      while ((searchPos = src.indexOf(target, searchPos)) !== -1) {
+        const dist = initialStart !== undefined ? Math.abs(searchPos - initialStart) : 0;
+        if (dist < minDistance) {
+          minDistance = dist;
+          bestIdx = searchPos;
+        }
+        searchPos += target.length;
+      }
+
+      if (bestIdx !== -1) {
+        cell.model.sharedModel.setSource(src.substring(0, bestIdx) + formatted + src.substring(bestIdx + target.length));
+        replaced = true;
+      }
+    }
+
+    // Priorität 3: Fallback über allFormulas
+    if (!replaced) {
       const allFormulas = extractAllFormulasFromMarkdown(src);
       const matched = allFormulas.find(f => f.latex === originalLatex || f.latex.replace(/\s+/g, ' ') === originalLatex.replace(/\s+/g, ' '));
-      if (matched && src.includes(matched.raw)) {
-        cell.model.sharedModel.setSource(src.replace(matched.raw, formatted));
+      if (matched && matched.start >= 0 && matched.end > matched.start) {
+        cell.model.sharedModel.setSource(src.substring(0, matched.start) + formatted + src.substring(matched.end));
+        replaced = true;
       } else {
         insertAroundSelection(cell, '', '', formatted);
       }
@@ -1259,8 +1297,6 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
 
     const src = cell.model.sharedModel.getSource();
     const allFormulas = extractAllFormulasFromMarkdown(src);
-    const blockFormulas = allFormulas.filter(f => f.isBlock);
-    const inlineFormulas = allFormulas.filter(f => !f.isBlock);
 
     // 1. Tabellen mit "Tabelle bearbeiten"-Button versehen
     renderedArea.querySelectorAll('table:not(.obsidian-processed)').forEach(table => {
@@ -1281,111 +1317,103 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       wrapper.appendChild(editBtn);
     });
 
-    // 2. Block-Formeln finden & mit prominentem "Formel bearbeiten"-Button versehen
-    const blockMathSelectors = [
-      'mjx-container[display="true"]:not(.obsidian-processed)',
-      'mjx-container.MathJax[display="true"]:not(.obsidian-processed)',
-      '.katex-display:not(.obsidian-processed)',
-      'div.jp-RenderedMath:not(.obsidian-processed)',
-      'span.jp-RenderedMath[display="true"]:not(.obsidian-processed)',
-      'div.MathJax_Display:not(.obsidian-processed)',
-      '.jp-RenderedMath[data-display="true"]:not(.obsidian-processed)'
+    // 2. Alle Formeln in Dokumentenreihenfolge identifizieren und lückenlos mit Editoren versehen
+    const mathSelectors = [
+      'mjx-container',
+      '.katex-display',
+      '.katex',
+      'div.jp-RenderedMath',
+      'span.jp-RenderedMath',
+      'div.MathJax_Display',
+      '.MathJax'
     ];
 
-    const blockMathElements: HTMLElement[] = Array.from(renderedArea.querySelectorAll(blockMathSelectors.join(', ')));
-
-    // Falls MathJax ohne display="true" Attribut gerendert hat, aber die Zelle Block-Formeln enthält
-    if (blockMathElements.length === 0 && blockFormulas.length > 0) {
-      renderedArea.querySelectorAll('.jp-RenderedMath:not(.obsidian-processed)').forEach(el => {
-        const parentTag = el.parentElement?.tagName.toLowerCase();
-        if (parentTag === 'p' || parentTag === 'div') {
-          blockMathElements.push(el as HTMLElement);
-        }
-      });
-    }
-
-    blockMathElements.forEach((displayMathEl, bIdx) => {
-      displayMathEl.classList.add('obsidian-processed');
-
-      // Finde die exakte Formel aus dem Quelltext
-      let targetFormula = blockFormulas[bIdx];
-
-      // Prüfe Annotation / data-tex für noch präziseres Matching
-      const annotation = displayMathEl.querySelector('annotation[encoding="application/x-tex"]') || displayMathEl.querySelector('annotation');
-      const annoText = annotation?.textContent?.trim();
-      if (annoText) {
-        const found = blockFormulas.find(f => f.latex === annoText || f.latex.replace(/\s+/g, ' ') === annoText.replace(/\s+/g, ' '));
-        if (found) targetFormula = found;
+    const rawMathElements = Array.from(renderedArea.querySelectorAll<HTMLElement>(mathSelectors.join(', ')));
+    // Nur Top-Level Math-Elemente (keine verschachtelten Sub-Knoten) und noch nicht verarbeitete
+    const mathElements = rawMathElements.filter(el => {
+      if (el.classList.contains('obsidian-processed') || el.closest('.obsidian-math-block-wrapper') || el.closest('.obsidian-inline-math-wrapper')) {
+        return false;
       }
-
-      const exactLatex = targetFormula ? targetFormula.latex : (annoText || displayMathEl.textContent?.trim() || '');
-      const exactRaw = targetFormula ? targetFormula.raw : undefined;
-
-      const wrapper = document.createElement('div');
-      wrapper.className = 'obsidian-math-block-wrapper';
-      wrapper.title = exactLatex ? `Formel bearbeiten ($$${exactLatex}$$)` : 'Formel bearbeiten';
-      displayMathEl.parentNode?.insertBefore(wrapper, displayMathEl);
-      wrapper.appendChild(displayMathEl);
-
-      const editBtn = document.createElement('button');
-      editBtn.className = 'obsidian-math-edit-btn';
-      editBtn.innerHTML = `
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
-        <span>Formel bearbeiten</span>
-      `;
-
-      const openHandler = (e: Event) => {
-        e.stopPropagation();
-        openMathEditorModal(cell, exactRaw, exactLatex, true);
-      };
-
-      editBtn.addEventListener('click', openHandler);
-      wrapper.addEventListener('click', openHandler);
-      wrapper.appendChild(editBtn);
+      return !rawMathElements.some(other => other !== el && other.contains(el));
     });
 
-    // 3. Inline-Formeln finden & mit Edit-Badge versehen
-    const inlineMathSelectors = [
-      'mjx-container:not([display="true"]):not(.obsidian-processed)',
-      '.katex:not(.katex-display .katex):not(.obsidian-processed)',
-      'span.jp-RenderedMath:not([display="true"]):not(div.jp-RenderedMath span):not(.obsidian-processed)'
-    ];
+    mathElements.forEach((mathEl, mIdx) => {
+      mathEl.classList.add('obsidian-processed');
 
-    const inlineMathElements: HTMLElement[] = Array.from(renderedArea.querySelectorAll(inlineMathSelectors.join(', ')));
-    inlineMathElements.forEach((inlineMathEl, iIdx) => {
-      if (inlineMathEl.closest('.obsidian-math-block-wrapper')) return;
-
-      inlineMathEl.classList.add('obsidian-processed');
-
-      let targetFormula = inlineFormulas[iIdx];
-      const annotation = inlineMathEl.querySelector('annotation[encoding="application/x-tex"]') || inlineMathEl.querySelector('annotation');
+      // TeX über MathJax/KaTeX Annotation ermitteln
+      const annotation = mathEl.querySelector('annotation[encoding="application/x-tex"]') || mathEl.querySelector('annotation');
       const annoText = annotation?.textContent?.trim();
+
+      // Exakte Quellformel aus allFormulas ermitteln
+      let targetFormula: ExtractedFormula | undefined;
       if (annoText) {
-        const found = inlineFormulas.find(f => f.latex === annoText || f.latex.replace(/\s+/g, ' ') === annoText.replace(/\s+/g, ' '));
-        if (found) targetFormula = found;
+        targetFormula = allFormulas.find(f => f.latex === annoText || f.latex.replace(/\s+/g, ' ') === annoText.replace(/\s+/g, ' '));
       }
 
-      const exactLatex = targetFormula ? targetFormula.latex : (annoText || inlineMathEl.textContent?.trim() || '');
-      const exactRaw = targetFormula ? targetFormula.raw : undefined;
+      // Falls keine Annotation vorhanden ist, nutze 1-zu-1 Zuordnung in Dokumentenreihenfolge
+      if (!targetFormula && mIdx < allFormulas.length) {
+        targetFormula = allFormulas[mIdx];
+      }
 
-      const wrapper = document.createElement('span');
-      wrapper.className = 'obsidian-inline-math-wrapper';
-      wrapper.title = exactLatex ? `Formel bearbeiten ($${exactLatex}$)` : 'Formel bearbeiten';
-      inlineMathEl.parentNode?.insertBefore(wrapper, inlineMathEl);
-      wrapper.appendChild(inlineMathEl);
+      // Bestimme ob Block oder Inline:
+      // Priorität 1: targetFormula.isBlock (aus dem Markdown-Quellcode)
+      // Priorität 2: DOM-Display-Attribute
+      const isBlock = targetFormula !== undefined ? targetFormula.isBlock : (
+        mathEl.getAttribute('display') === 'true' ||
+        mathEl.classList.contains('katex-display') ||
+        mathEl.tagName.toLowerCase() === 'div' ||
+        mathEl.getAttribute('data-display') === 'true'
+      );
 
-      const editBadge = document.createElement('span');
-      editBadge.className = 'obsidian-inline-edit-btn';
-      editBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>`;
-      wrapper.appendChild(editBadge);
+      const exactLatex = targetFormula ? targetFormula.latex : (annoText || mathEl.textContent?.trim() || '');
+      const exactRaw = targetFormula ? targetFormula.raw : (isBlock ? `$$\\n${exactLatex}\\n$$` : `$${exactLatex}$`);
+      const exactStart = targetFormula ? targetFormula.start : undefined;
+      const exactEnd = targetFormula ? targetFormula.end : undefined;
 
-      wrapper.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMathEditorModal(cell, exactRaw, exactLatex, false);
-      });
+      if (isBlock) {
+        // Block-Formel
+        const wrapper = document.createElement('div');
+        wrapper.className = 'obsidian-math-block-wrapper';
+        wrapper.title = exactLatex ? `Formel bearbeiten ($$${exactLatex}$$)` : 'Formel bearbeiten';
+        mathEl.parentNode?.insertBefore(wrapper, mathEl);
+        wrapper.appendChild(mathEl);
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'obsidian-math-edit-btn';
+        editBtn.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
+          <span>Formel bearbeiten</span>
+        `;
+
+        const openHandler = (e: Event) => {
+          e.stopPropagation();
+          openMathEditorModal(cell, exactRaw, exactLatex, true, exactStart, exactEnd);
+        };
+
+        editBtn.addEventListener('click', openHandler);
+        wrapper.addEventListener('click', openHandler);
+        wrapper.appendChild(editBtn);
+      } else {
+        // Inline-Formel
+        const wrapper = document.createElement('span');
+        wrapper.className = 'obsidian-inline-math-wrapper';
+        wrapper.title = exactLatex ? `Formel bearbeiten ($${exactLatex}$)` : 'Formel bearbeiten';
+        mathEl.parentNode?.insertBefore(wrapper, mathEl);
+        wrapper.appendChild(mathEl);
+
+        const editBadge = document.createElement('span');
+        editBadge.className = 'obsidian-inline-edit-btn';
+        editBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>`;
+        wrapper.appendChild(editBadge);
+
+        wrapper.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openMathEditorModal(cell, exactRaw, exactLatex, false, exactStart, exactEnd);
+        });
+      }
     });
 
-    // 4. Obsidian Callouts stylen
+    // 3. Obsidian Callouts stylen
     renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
       const p = bq.querySelector('p');
       if (!p) return;
