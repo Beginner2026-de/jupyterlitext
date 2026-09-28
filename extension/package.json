@@ -27,9 +27,9 @@
 "scripts": {
     "clean": "rimraf lib tsconfig.tsbuildinfo jupyterlite_obsidian_markdown/labextension",
     "build:lib": "tsc",
-    "build:labextension": "jupyter labextension build .",
-    "build": "npm run build:lib && jupyter labextension build .",
-    "build:prod": "npm run clean && npm run build:lib && jupyter labextension build .",
+    "build:labextension": "python -m jupyter labextension build .",
+    "build": "npm run build:lib && python -m jupyter labextension build .",
+    "build:prod": "npm run clean && npm run build:lib && python -m jupyter labextension build .",
     "watch": "tsc -w"
   },
   "dependencies": {
