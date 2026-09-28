@@ -12,6 +12,9 @@ dependencies = [
     "jupyterlab>=4.0.0,<5",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["jupyterlite_obsidian_markdown"]
+
 [tool.hatch.build.targets.wheel.shared-data]
 "jupyterlite_obsidian_markdown/labextension" = "share/jupyter/labextensions/jupyterlite-obsidian-markdown"
 
