@@ -163,6 +163,104 @@ function injectStyles(): void {
       background: #6d28d9;
     }
 
+    /* Modus-Umschaltung (Live Preview, Split, Source, Gelesen) */
+    .obsidian-tb-mode-group {
+      display: inline-flex;
+      align-items: center;
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      padding: 2px;
+      gap: 2px;
+      margin-left: auto;
+    }
+    .obsidian-tb-mode-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #a1a1aa;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+    .obsidian-tb-mode-btn:hover {
+      color: #f4f4f5;
+      background: #18181b;
+    }
+    .obsidian-tb-mode-btn.active {
+      background: #27272a;
+      color: #fbbf24;
+      border-color: #3f3f46;
+      font-weight: 600;
+    }
+    .obsidian-tb-mode-btn svg {
+      stroke: currentColor;
+    }
+
+    /* Split-View Container (2 Spalten: Links Editor, Rechts Vorschau) */
+    .obsidian-cell-split {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 14px !important;
+      align-items: stretch !important;
+    }
+    .obsidian-split-preview {
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      overflow-y: auto;
+      max-height: 520px;
+      min-height: 180px;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .obsidian-live-preview {
+      background: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-top: 10px;
+      color: #f4f4f5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .obsidian-preview-header {
+      font-size: 11px;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #27272a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .obsidian-preview-badge {
+      font-size: 10px;
+      color: #34d399;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .obsidian-preview-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      display: inline-block;
+    }
+
     /* Dropdowns */
     .obsidian-dropdown-container {
       position: relative;
@@ -604,6 +702,196 @@ function showObsidianToast(message: string): void {
 }
 
 /**
+ * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
+ */
+function renderObsidianMarkdown(src: string): string {
+  if (!src || src.trim().length === 0) {
+    return '<div style="color: #71717a; font-style: italic; font-size: 12px; padding: 6px 0;">Kein Inhalt...</div>';
+  }
+
+  let html = src;
+
+  // 1. Block-Gleichungen ($$...$$)
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
+    return `<div class="obsidian-math-block-wrapper">${renderKaTeXPreview(tex, true)}</div>`;
+  });
+
+  // 2. Inline-Gleichungen ($...$)
+  const inlineRegex = /(?<![\$\\])\$(?!\$)([^\$\n]+?)(?<![\$\\])\$(?!\$)/g;
+  html = html.replace(inlineRegex, (_, tex) => {
+    return `<span class="obsidian-inline-math-wrapper">${renderKaTeXPreview(tex, false)}</span>`;
+  });
+
+  // 3. Tabellen (| ... |)
+  html = html.replace(/(?:^|\n)(\|.+?\|\n\|[-: |]+\|\n(?:\|.+?\|\n?)*)/g, (match) => {
+    const lines = match.trim().split('\n');
+    if (lines.length < 2) return match;
+    const headers = lines[0].split('|').map(s => s.trim()).filter(s => s.length > 0);
+    const bodyRows = lines.slice(2).map(line => line.split('|').map(s => s.trim()).filter(s => s.length > 0));
+    
+    let tableHtml = '<div class="obsidian-table-wrapper"><table class="obsidian-table-grid"><thead><tr>';
+    headers.forEach(h => { tableHtml += `<th>${h}</th>`; });
+    tableHtml += '</tr></thead><tbody>';
+    bodyRows.forEach(row => {
+      tableHtml += '<tr>';
+      row.forEach(c => { tableHtml += `<td>${c}</td>`; });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table></div>';
+    return tableHtml;
+  });
+
+  // 4. Obsidian Callouts (> [!NOTE])
+  html = html.replace(/(?:^|\n)> ?\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\] ?(.*(?:\n> ?.*)*)/gi, (_, type, content) => {
+    const cleanType = type.toUpperCase();
+    const cleanContent = content.replace(/\n> ?/g, '<br>');
+    return `<div class="obsidian-callout obsidian-callout-${type.toLowerCase()}"><div class="obsidian-callout-header"><span class="obsidian-callout-badge">${cleanType}</span></div><div style="font-size: 12px; margin-top: 4px;">${cleanContent}</div></div>`;
+  });
+
+  // 5. Überschriften
+  html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 15px; font-weight: 700; color: #f4f4f5; margin: 10px 0 6px;">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 17px; font-weight: 700; color: #f4f4f5; margin: 12px 0 6px;">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20px; font-weight: 800; color: #fafafa; margin: 14px 0 8px;">$1</h1>');
+
+  // 6. Textformatierungen
+  html = html.replace(/==(.*?)==/g, '<mark style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; padding: 0 4px; border-radius: 3px;">$1</mark>');
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  html = html.replace(/~~(.*?)~~/g, '<del style="color: #a1a1aa;">$1</del>');
+  html = html.replace(/`([^`]+)`/g, '<code style="background: #27272a; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #38bdf8;">$1</code>');
+
+  // 7. Checklisten & Listen
+  html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
+  html = html.replace(/^- \[ \] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" disabled> <span>$1</span></div>');
+  html = html.replace(/^- (.*$)/gim, '<li style="margin-left: 18px;">$1</li>');
+
+  // Absätze / Newlines
+  html = html.replace(/\n\n/g, '<br><br>');
+
+  return html;
+}
+
+function updateActivePreview(cell: MarkdownCell): void {
+  const mode = (cell as any)._obsidianMode;
+  const src = cell.model.sharedModel.getSource();
+
+  if (mode === 'split') {
+    const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body');
+    if (preview) {
+      preview.innerHTML = renderObsidianMarkdown(src);
+    }
+  } else if (mode === 'live') {
+    const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body');
+    if (preview) {
+      preview.innerHTML = renderObsidianMarkdown(src);
+    }
+  }
+}
+
+function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source' | 'rendered'): void {
+  (cell as any)._obsidianMode = mode;
+
+  // Toolbar Button-Zustände synchronisieren
+  const toolbar = cell.node.querySelector('.obsidian-floating-toolbar');
+  if (toolbar) {
+    toolbar.querySelectorAll('.obsidian-tb-mode-btn').forEach(btn => {
+      if (btn.getAttribute('data-mode') === mode) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  const editorNode = cell.node.querySelector('.jp-Cell-inputArea') as HTMLElement | null;
+  const existingSplit = cell.node.querySelector('.obsidian-split-preview');
+  const existingLive = cell.node.querySelector('.obsidian-live-preview');
+
+  if (mode === 'rendered') {
+    if (existingSplit) existingSplit.remove();
+    if (existingLive) existingLive.remove();
+    if (editorNode) {
+      editorNode.classList.remove('obsidian-cell-split');
+    }
+    cell.rendered = true;
+    showObsidianToast('📖 Gelesen (Leseansicht)');
+    return;
+  }
+
+  // Modus ist nicht rendered -> Zelle muss unrendered (im Editor) sein
+  cell.rendered = false;
+
+  // Sicherstellen, dass der Event-Listener auf Quelltext-Änderungen aktiv ist
+  if (!(cell as any)._obsidianListenerAttached) {
+    (cell as any)._obsidianListenerAttached = true;
+    cell.model.sharedModel.changed.connect(() => {
+      updateActivePreview(cell);
+    });
+  }
+
+  if (mode === 'source') {
+    if (existingSplit) existingSplit.remove();
+    if (existingLive) existingLive.remove();
+    if (editorNode) {
+      editorNode.classList.remove('obsidian-cell-split');
+    }
+    cell.editor?.focus();
+    showObsidianToast('📝 Source-Modus (Nur Quelltext)');
+    return;
+  }
+
+  if (mode === 'split') {
+    if (existingLive) existingLive.remove();
+    if (editorNode) {
+      editorNode.classList.add('obsidian-cell-split');
+
+      let splitPreview = existingSplit as HTMLElement | null;
+      if (!splitPreview) {
+        splitPreview = document.createElement('div');
+        splitPreview.className = 'obsidian-split-preview';
+        splitPreview.innerHTML = `
+          <div class="obsidian-preview-header">
+            <span>📑 Split-Vorschau</span>
+            <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Live KaTeX</span>
+          </div>
+          <div class="obsidian-preview-body"></div>
+        `;
+        editorNode.appendChild(splitPreview);
+      }
+      updateActivePreview(cell);
+    }
+    cell.editor?.focus();
+    showObsidianToast('📑 Split-Ansicht aktiv');
+    return;
+  }
+
+  if (mode === 'live') {
+    if (existingSplit) existingSplit.remove();
+    if (editorNode) {
+      editorNode.classList.remove('obsidian-cell-split');
+
+      let livePreview = existingLive as HTMLElement | null;
+      if (!livePreview) {
+        livePreview = document.createElement('div');
+        livePreview.className = 'obsidian-live-preview';
+        livePreview.innerHTML = `
+          <div class="obsidian-preview-header">
+            <span>👁️ Live Preview (KaTeX & Markdown)</span>
+            <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Echtzeit</span>
+          </div>
+          <div class="obsidian-preview-body"></div>
+        `;
+        editorNode.appendChild(livePreview);
+      }
+      updateActivePreview(cell);
+    }
+    cell.editor?.focus();
+    showObsidianToast('👁️ Live Preview aktiv');
+    return;
+  }
+}
+
+/**
  * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle
  */
 function attachObsidianToolbar(cell: MarkdownCell): void {
@@ -690,8 +978,28 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
 
     <div class="obsidian-tb-divider"></div>
 
+    <!-- Modus-Umschaltung: Live Preview, Split, Source, Gelesen -->
+    <div class="obsidian-tb-mode-group">
+      <button class="obsidian-tb-mode-btn" data-mode="live" title="Live Preview: Editor mit Live-Vorschau darunter">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Live Preview</span>
+      </button>
+      <button class="obsidian-tb-mode-btn" data-mode="split" title="Split View: Quellcode links, Live-Vorschau rechts">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5z"/></svg>
+        <span>Split</span>
+      </button>
+      <button class="obsidian-tb-mode-btn active" data-mode="source" title="Source: Reiner Markdown Quellcode">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span>Source</span>
+      </button>
+      <button class="obsidian-tb-mode-btn" data-mode="rendered" title="Gelesen: Fertige Leseansicht (Rendern)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Gelesen</span>
+      </button>
+    </div>
+
     <!-- Zelle Ausführen / Rendern -->
-    <button class="obsidian-tb-btn obsidian-tb-btn-primary" title="Zelle ausführen / rendern (Umschalt+Eingabe)" data-action="render">
+    <button class="obsidian-tb-btn obsidian-tb-btn-primary" title="Zelle ausführen / rendern (Umschalt+Eingabe)" data-action="render" style="margin-left: 4px;">
       ▶ Rendern
     </button>
   `;
@@ -714,7 +1022,18 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     document.querySelectorAll('.obsidian-dropdown-menu').forEach(m => m.classList.remove('show'));
   });
 
-  // Klick-Aktionen auf Buttons
+  // Modus-Button Klick Aktionen (Live Preview, Split, Source, Gelesen)
+  toolbar.querySelectorAll('.obsidian-tb-mode-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mode = btn.getAttribute('data-mode') as 'live' | 'split' | 'source' | 'rendered';
+      if (mode) {
+        setCellEditorMode(cell, mode);
+      }
+    });
+  });
+
+  // Klick-Aktionen auf Standard-Buttons
   toolbar.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
