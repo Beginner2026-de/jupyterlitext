@@ -26,18 +26,3 @@ skip-if-exists = ["jupyterlite_obsidian_markdown/labextension/static/remoteEntry
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
 build_cmd = "build:prod"
 npm = ["npm"]
-
-[tool.hatch.build.targets.wheel.shared-data]
-"jupyterlite_obsidian_markdown/labextension" = "share/jupyter/labextensions/jupyterlite-obsidian-markdown"
-
-[tool.hatch.build.hooks.jupyter-builder]
-dependencies = ["hatch-jupyter-builder>=0.5"]
-build-function = "hatch_jupyter_builder.npm_builder"
-ensured-targets = [
-    "jupyterlite_obsidian_markdown/labextension/package.json",
-]
-skip-if-exists = ["jupyterlite_obsidian_markdown/labextension/static/remoteEntry.js"]
-
-[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
-build_cmd = "build:prod"
-npm = ["npm"]
