@@ -24,10 +24,13 @@
     "extension": true,
     "outputDir": "jupyterlite_obsidian_markdown/labextension"
   },
-  "scripts": {
-    "build": "jlpm build:lib && jlpm build:labextension:dev",
-    "build:prod": "jlpm clean && jlpm build:lib:prod && jlpm build:labextension",
-    "watch": "run-p watch:src watch:labextension"
+"scripts": {
+    "clean": "rimraf lib tsconfig.tsbuildinfo jupyterlite_obsidian_markdown/labextension",
+    "build:lib": "tsc",
+    "build:labextension": "jupyter labextension build .",
+    "build": "npm run build:lib && jupyter labextension build .",
+    "build:prod": "npm run clean && npm run build:lib && jupyter labextension build .",
+    "watch": "tsc -w"
   },
   "dependencies": {
     "@jupyterlab/application": "^4.0.0",
