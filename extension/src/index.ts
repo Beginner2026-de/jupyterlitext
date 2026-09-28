@@ -7,13 +7,19 @@ import { MarkdownCell } from '@jupyterlab/cells';
 
 /**
  * Obsidian Live Markdown Extension for JupyterLite
+ * Complete Obsidian-like experience:
+ * - Dark Obsidian Floating Toolbar with SVG icons & dropdowns
+ * - Interactive Table Grid Editor (create, edit in-place, alignments, live preview)
+ * - Interactive KaTeX Math Formula Builder (chips, live preview, in-place update)
+ * - Hover 'Tabelle bearbeiten' on rendered tables & 'Formel bearbeiten' on formulas
+ * - Obsidian Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
  */
 const extension: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlite-obsidian-markdown:plugin',
   description: 'Obsidian Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
   autoStart: true,
-  requires: [INotebookTracker],
-  activate: (_app: JupyterFrontEnd, tracker: INotebookTracker) => {
+  optional: [INotebookTracker],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker | null) => {
     console.log('[Obsidian Extension] Geladen und aktiv!');
 
     // CSS-Stile für Obsidian Dark Theme verankern
@@ -23,21 +29,64 @@ const extension: JupyterFrontEndPlugin<void> = {
     // Start-Hinweis
     showObsidianToast('💎 Obsidian Markdown aktiv!');
 
-    tracker.widgetAdded.connect((_, notebookPanel: NotebookPanel) => {
+    const setupNotebook = (notebookPanel: NotebookPanel) => {
+      if (!notebookPanel || (notebookPanel as any)._obsidianObserved) return;
+      (notebookPanel as any)._obsidianObserved = true;
+
+      // Initiale Transformationen nach dem Laden
+      setTimeout(() => transformRenderedMarkdown(notebookPanel), 300);
+      setTimeout(() => transformRenderedMarkdown(notebookPanel), 900);
+
       // Wenn eine Zelle aktiv wird:
       notebookPanel.content.activeCellChanged.connect((_, cell) => {
         document.querySelectorAll('.obsidian-floating-toolbar').forEach(el => el.remove());
-        if (cell instanceof MarkdownCell) {
-          attachObsidianToolbar(cell);
+        if (cell && (cell.model?.type === 'markdown' || (cell as any).cellType === 'markdown' || cell.node.classList.contains('jp-MarkdownCell'))) {
+          attachObsidianToolbar(cell as MarkdownCell);
         }
+        setTimeout(() => transformRenderedMarkdown(notebookPanel), 100);
       });
 
-      // Beim Rendern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
+      // Beim Rendern oder Ändern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
       notebookPanel.content.model?.cells.changed.connect(() => {
-        transformRenderedMarkdown(notebookPanel);
+        setTimeout(() => transformRenderedMarkdown(notebookPanel), 250);
       });
-      setTimeout(() => transformRenderedMarkdown(notebookPanel), 800);
-    });
+
+      // MutationObserver auf das Notebook-DOM zur lückenlosen Erkennung gerenderter Formeln & Tabellen
+      try {
+        const observer = new MutationObserver((mutations) => {
+          let hasAdded = false;
+          for (const m of mutations) {
+            if (m.addedNodes.length > 0) {
+              hasAdded = true;
+              break;
+            }
+          }
+          if (hasAdded) {
+            transformRenderedMarkdown(notebookPanel);
+          }
+        });
+        observer.observe(notebookPanel.node, { childList: true, subtree: true });
+      } catch (_e) {
+        // Fallback
+      }
+    };
+
+    if (tracker) {
+      tracker.widgetAdded.connect((_, notebookPanel: NotebookPanel) => {
+        setupNotebook(notebookPanel);
+      });
+      tracker.forEach(nb => setupNotebook(nb));
+      if (tracker.currentWidget) {
+        setupNotebook(tracker.currentWidget);
+      }
+    }
+
+    // Zusätzlicher Fallback-Intervall zur Sicherstellung, dass alle Formeln Buttons haben
+    setInterval(() => {
+      if (tracker?.currentWidget) {
+        transformRenderedMarkdown(tracker.currentWidget);
+      }
+    }, 2000);
   }
 };
 
@@ -339,7 +388,7 @@ function injectStyles(): void {
       background: #6d28d9;
     }
 
-    /* Rendered Cell Enhancements: Tabellen */
+    /* Rendered Cell Enhancements */
     .obsidian-table-wrapper {
       position: relative;
       margin: 12px 0;
@@ -380,13 +429,17 @@ function injectStyles(): void {
       border-radius: 8px;
       overflow-x: auto;
       text-align: center;
-      transition: border-color 0.2s ease;
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
     .obsidian-math-block-wrapper:hover {
-      border-color: #3f3f46;
+      border-color: #f59e0b;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.12);
     }
     .obsidian-math-block-wrapper:hover .obsidian-math-edit-btn {
       opacity: 1;
+      border-color: #f59e0b;
+      color: #fef08a;
     }
     .obsidian-math-edit-btn {
       position: absolute;
@@ -395,13 +448,13 @@ function injectStyles(): void {
       background: #27272a;
       color: #fbbf24;
       border: 1px solid #3f3f46;
-      border-radius: 5px;
+      border-radius: 6px;
       padding: 4px 9px;
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
-      opacity: 0;
-      transition: opacity 0.2s ease, background 0.15s ease, color 0.15s ease;
+      opacity: 0.85;
+      transition: all 0.15s ease;
       z-index: 10;
       box-shadow: 0 4px 10px rgba(0,0,0,0.3);
       display: inline-flex;
@@ -550,6 +603,9 @@ function showObsidianToast(message: string): void {
   }, 4000);
 }
 
+/**
+ * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle
+ */
 function attachObsidianToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
 
@@ -561,6 +617,8 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
 
   toolbar.innerHTML = `
     <div class="obsidian-tb-brand">💎 Obsidian</div>
+
+    <!-- Überschriften Dropdown -->
     <div class="obsidian-dropdown-container">
       <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="Überschriften">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12M6 20V4M18 20V4"/></svg>
@@ -572,7 +630,10 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
         <button class="obsidian-dropdown-item" data-action="h3"><b>H3 Abschnitt</b></button>
       </div>
     </div>
+
     <div class="obsidian-tb-divider"></div>
+
+    <!-- Formatierungen -->
     <button class="obsidian-tb-btn" title="Fett (Strg+B)" data-action="bold">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 12h9a4 4 0 0 1 0 8H6v-8zm0 0h8a3.5 3.5 0 0 0 0-7H6v7z"/></svg>
     </button>
@@ -588,22 +649,31 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     <button class="obsidian-tb-btn" title="Inline-Code" data-action="code">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
     </button>
+
     <div class="obsidian-tb-divider"></div>
+
+    <!-- Listen -->
     <button class="obsidian-tb-btn" title="Aufzählung (- )" data-action="bullet">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
     </button>
     <button class="obsidian-tb-btn" title="Checkliste (- [ ] )" data-action="checklist">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     </button>
+
     <div class="obsidian-tb-divider"></div>
+
+    <!-- Interaktive Formeln & Tabellen -->
     <button class="obsidian-tb-btn" title="LaTeX Formel-Editor öffnen" data-action="math" style="color: #c084fc;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
       <span>Formel</span>
     </button>
+
     <button class="obsidian-tb-btn" title="Interaktiven Tabellen-Editor öffnen" data-action="table" style="color: #38bdf8;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
       <span>Tabelle</span>
     </button>
+
+    <!-- Callouts Dropdown -->
     <div class="obsidian-dropdown-container">
       <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="Obsidian Callouts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
@@ -617,12 +687,16 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
         <button class="obsidian-dropdown-item" data-action="callout-important" style="color: #c084fc;">📌 [!IMPORTANT] Wichtig</button>
       </div>
     </div>
+
     <div class="obsidian-tb-divider"></div>
+
+    <!-- Zelle Ausführen / Rendern -->
     <button class="obsidian-tb-btn obsidian-tb-btn-primary" title="Zelle ausführen / rendern (Umschalt+Eingabe)" data-action="render">
       ▶ Rendern
     </button>
   `;
 
+  // Dropdown-Toggle Logik
   toolbar.querySelectorAll('.obsidian-dropdown-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -635,10 +709,12 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     });
   });
 
+  // Schließe Menüs bei Klick außerhalb
   document.addEventListener('click', () => {
     document.querySelectorAll('.obsidian-dropdown-menu').forEach(m => m.classList.remove('show'));
   });
 
+  // Klick-Aktionen auf Buttons
   toolbar.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -722,6 +798,9 @@ function insertLinePrefix(cell: MarkdownCell, prefix: string): void {
   cell.model.sharedModel.setSource(newContent);
 }
 
+/**
+ * Parsen einer Markdown-Tabelle
+ */
 function parseMarkdownTable(raw: string) {
   const lines = raw.trim().split('\n').filter(l => l.trim().startsWith('|') && l.trim().endsWith('|'));
   if (lines.length < 2) return null;
@@ -737,6 +816,9 @@ function parseMarkdownTable(raw: string) {
   return { headers, alignments, rows };
 }
 
+/**
+ * Generieren von Markdown aus Tabellen-Daten
+ */
 function generateMarkdownTable(headers: string[], alignments: string[], rows: string[][]): string {
   let md = '| ' + headers.join(' | ') + ' |\n';
   md += '| ' + alignments.map(a => a === 'center' ? ':---:' : a === 'right' ? '---:' : '---').join(' | ') + ' |\n';
@@ -747,6 +829,9 @@ function generateMarkdownTable(headers: string[], alignments: string[], rows: st
   return md;
 }
 
+/**
+ * Findet alle Markdown-Tabellen im Quelltext
+ */
 function extractAllMarkdownTables(src: string): string[] {
   const results: string[] = [];
   const lines = src.split('\n');
@@ -763,6 +848,9 @@ function extractAllMarkdownTables(src: string): string[] {
   return results;
 }
 
+/**
+ * INTERAKTIVER TABELLEN-EDITOR (Erstellen & In-Place Bearbeiten)
+ */
 function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string): void {
   const existing = document.getElementById('obsidian-table-modal');
   if (existing) existing.remove();
@@ -805,9 +893,11 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
           </div>
           <span style="font-size: 12px; color: #a1a1aa;" id="tb-dim-label"></span>
         </div>
+
         <div style="max-height: 380px; overflow: auto; border: 1px solid #3f3f46; border-radius: 8px; padding: 4px;">
           <table class="obsidian-table-grid" id="tb-grid"></table>
         </div>
+
         <div style="margin-top: 14px;">
           <label style="font-size: 11px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">Markdown Vorschau:</label>
           <pre id="tb-md-preview" style="background: #09090b; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; color: #38bdf8; overflow-x: auto; margin-top: 4px;"></pre>
@@ -830,6 +920,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
     dimLabel.textContent = `${currentHeaders.length} Spalten × ${currentRows.length} Zeilen`;
     gridTable.innerHTML = '';
 
+    // Header Zeile
     const thead = document.createElement('thead');
     const headerTr = document.createElement('tr');
     currentHeaders.forEach((h, colIdx) => {
@@ -858,6 +949,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
     thead.appendChild(headerTr);
     gridTable.appendChild(thead);
 
+    // Body Zeilen
     const tbody = document.createElement('tbody');
     currentRows.forEach((row, rowIdx) => {
       const tr = document.createElement('tr');
@@ -915,6 +1007,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   modalOverlay.querySelector('#tb-save')?.addEventListener('click', () => {
     const finalMd = generateMarkdownTable(currentHeaders, currentAlignments, currentRows);
     if (initialTableMarkdown) {
+      // In-Place Update der existierenden Tabelle
       const src = cell.model.sharedModel.getSource();
       if (src.includes(initialTableMarkdown.trim())) {
         cell.model.sharedModel.setSource(src.replace(initialTableMarkdown.trim(), finalMd.trim()));
@@ -930,46 +1023,65 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   renderGrid();
 }
 
-function findFormulaInSource(src: string, targetLatex: string, isBlock: boolean): string | null {
-  const cleanTarget = targetLatex.trim();
-  const normalizedTarget = cleanTarget.replace(/\s+/g, ' ');
-
-  if (isBlock) {
-    const blockRegex = /\$\$([\s\S]*?)\$\$/g;
-    let match;
-    while ((match = blockRegex.exec(src)) !== null) {
-      const inside = match[1].trim();
-      if (inside === cleanTarget || inside.replace(/\s+/g, ' ') === normalizedTarget) {
-        return match[0];
-      }
-    }
-    blockRegex.lastIndex = 0;
-    while ((match = blockRegex.exec(src)) !== null) {
-      if (cleanTarget.length > 3 && match[1].includes(cleanTarget.slice(0, Math.min(cleanTarget.length, 12)))) {
-        return match[0];
-      }
-    }
-  } else {
-    const inlineRegex = /(?<!\\)\$([^\$\n]+?)(?<!\\)\$/g;
-    let match;
-    while ((match = inlineRegex.exec(src)) !== null) {
-      const inside = match[1].trim();
-      if (inside === cleanTarget || inside.replace(/\s+/g, ' ') === normalizedTarget) {
-        return match[0];
-      }
-    }
-  }
-  return null;
+/**
+ * Extrahiert alle mathematischen Formeln (Block & Inline) im Original-LaTeX aus dem Markdown-Quelltext der Zelle
+ */
+interface ExtractedFormula {
+  raw: string;
+  latex: string;
+  isBlock: boolean;
+  start: number;
+  end: number;
 }
 
+function extractAllFormulasFromMarkdown(src: string): ExtractedFormula[] {
+  const list: ExtractedFormula[] = [];
+
+  // 1. Block-Formeln: $$ ... $$
+  const blockRegex = /\$\$([\s\S]*?)\$\$/g;
+  let bMatch: RegExpExecArray | null;
+  while ((bMatch = blockRegex.exec(src)) !== null) {
+    list.push({
+      raw: bMatch[0],
+      latex: bMatch[1].trim(),
+      isBlock: true,
+      start: bMatch.index,
+      end: bMatch.index + bMatch[0].length
+    });
+  }
+
+  // 2. Inline-Formeln: $ ... $
+  const inlineRegex = /(?<!\\)\$(?!\$)(.+?)(?<!\\)\$/g;
+  let iMatch: RegExpExecArray | null;
+  while ((iMatch = inlineRegex.exec(src)) !== null) {
+    const start = iMatch.index;
+    const end = iMatch.index + iMatch[0].length;
+    if (!list.some(b => b.isBlock && start >= b.start && end <= b.end)) {
+      list.push({
+        raw: iMatch[0],
+        latex: iMatch[1].trim(),
+        isBlock: false,
+        start,
+        end
+      });
+    }
+  }
+
+  list.sort((a, b) => a.start - b.start);
+  return list;
+}
+
+/**
+ * INTERAKTIVER FORMEL-EDITOR (Erstellen & In-Place Bearbeiten mit Live KaTeX)
+ */
 function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string, initialLatex?: string, initialIsBlock?: boolean): void {
   const existing = document.getElementById('obsidian-math-modal');
   if (existing) existing.remove();
 
   let isBlock = initialIsBlock !== undefined ? initialIsBlock : true;
-  let currentLatex = initialLatex !== undefined ? initialLatex : '\\mathbf{A}\\mathbf{x} = \\mathbf{b}';
+  let currentLatex = initialLatex !== undefined && initialLatex !== '' ? initialLatex : '\\mathbf{A}\\mathbf{x} = \\mathbf{b}';
 
-  if (initialFormulaMarkdown && !initialLatex) {
+  if (initialFormulaMarkdown && (!initialLatex || initialLatex === '')) {
     const trimmed = initialFormulaMarkdown.trim();
     if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length >= 4) {
       currentLatex = trimmed.slice(2, -2).trim();
@@ -1001,6 +1113,7 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
           ${isEditing ? 'Bestehende Formel in dieser Zelle anpassen und aktualisieren' : 'Mathematische Ausdrücke & Data-Science Formeln intuitiv einfügen'}
         </p>
 
+        <!-- Schnellauswahl Chips -->
         <div class="obsidian-chips-group">
           <div class="obsidian-chips-title">Matrizen & Vektoren</div>
           <div class="obsidian-chips-row">
@@ -1080,9 +1193,18 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
     chip.addEventListener('click', () => {
       const tex = chip.getAttribute('data-tex');
       if (tex) {
-        texInput.value = tex;
-        currentLatex = tex;
+        const start = texInput.selectionStart;
+        const end = texInput.selectionEnd;
+        if (start !== undefined && end !== undefined && start !== end) {
+          texInput.value = texInput.value.substring(0, start) + tex + texInput.value.substring(end);
+        } else if (start !== undefined && end !== undefined) {
+          texInput.value = texInput.value.substring(0, start) + tex + texInput.value.substring(start);
+        } else {
+          texInput.value = tex;
+        }
+        currentLatex = texInput.value;
         renderMathPreview();
+        texInput.focus();
       }
     });
   });
@@ -1100,118 +1222,184 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
 
     if (initialFormulaMarkdown && src.includes(initialFormulaMarkdown)) {
       cell.model.sharedModel.setSource(src.replace(initialFormulaMarkdown, formatted));
+    } else if (initialFormulaMarkdown && src.includes(initialFormulaMarkdown.trim())) {
+      cell.model.sharedModel.setSource(src.replace(initialFormulaMarkdown.trim(), formatted));
     } else {
-      const foundInSrc = findFormulaInSource(src, originalLatex, isBlock);
-      if (foundInSrc && src.includes(foundInSrc)) {
-        cell.model.sharedModel.setSource(src.replace(foundInSrc, formatted));
+      const allFormulas = extractAllFormulasFromMarkdown(src);
+      const matched = allFormulas.find(f => f.latex === originalLatex || f.latex.replace(/\s+/g, ' ') === originalLatex.replace(/\s+/g, ' '));
+      if (matched && src.includes(matched.raw)) {
+        cell.model.sharedModel.setSource(src.replace(matched.raw, formatted));
       } else {
         insertAroundSelection(cell, '', '', formatted);
       }
     }
+    showObsidianToast('✨ Formel aktualisiert!');
     close();
   });
 
   renderMathPreview();
+  setTimeout(() => {
+    texInput.focus();
+    texInput.select();
+  }, 50);
 }
 
+/**
+ * Anreichern der gerenderten Markdown-Zellen mit In-Place Editoren
+ */
 function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
   notebookPanel.content.widgets.forEach(widget => {
-    if (widget instanceof MarkdownCell) {
-      const cell = widget;
-      const renderedArea = cell.node.querySelector('.jp-RenderedMarkdown') || cell.node.querySelector('.jp-MarkdownOutput');
-      if (!renderedArea) return;
+    const cell = widget as MarkdownCell;
+    if (!cell || (cell.model?.type !== 'markdown' && !(cell as any).cellType && !cell.node.classList.contains('jp-MarkdownCell'))) {
+      return;
+    }
 
-      // 1. Tabellen mit "Tabelle bearbeiten"-Button versehen
-      renderedArea.querySelectorAll('table:not(.obsidian-processed)').forEach(table => {
-        table.classList.add('obsidian-processed');
-        const wrapper = document.createElement('div');
-        wrapper.className = 'obsidian-table-wrapper';
-        table.parentNode?.insertBefore(wrapper, table);
-        wrapper.appendChild(table);
+    const renderedArea = cell.node.querySelector('.jp-RenderedMarkdown') || cell.node.querySelector('.jp-MarkdownOutput');
+    if (!renderedArea) return;
 
-        const editBtn = document.createElement('button');
-        editBtn.className = 'obsidian-table-edit-btn';
-        editBtn.innerHTML = '✏️ Tabelle bearbeiten';
-        editBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const src = cell.model.sharedModel.getSource();
-          const tablesInSrc = extractAllMarkdownTables(src);
-          openTableEditorModal(cell, tablesInSrc[0]);
-        });
-        wrapper.appendChild(editBtn);
+    const src = cell.model.sharedModel.getSource();
+    const allFormulas = extractAllFormulasFromMarkdown(src);
+    const blockFormulas = allFormulas.filter(f => f.isBlock);
+    const inlineFormulas = allFormulas.filter(f => !f.isBlock);
+
+    // 1. Tabellen mit "Tabelle bearbeiten"-Button versehen
+    renderedArea.querySelectorAll('table:not(.obsidian-processed)').forEach(table => {
+      table.classList.add('obsidian-processed');
+      const wrapper = document.createElement('div');
+      wrapper.className = 'obsidian-table-wrapper';
+      table.parentNode?.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'obsidian-table-edit-btn';
+      editBtn.innerHTML = '✏️ Tabelle bearbeiten';
+      editBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const tablesInSrc = extractAllMarkdownTables(src);
+        openTableEditorModal(cell, tablesInSrc[0]);
       });
+      wrapper.appendChild(editBtn);
+    });
 
-      // 2. Block-Formeln (.katex-display, div.jp-RenderedMath) mit prominentem "Formel bearbeiten"-Button versehen
-      renderedArea.querySelectorAll('.katex-display:not(.obsidian-processed), .jp-RenderedMath:not(p .jp-RenderedMath):not(.obsidian-processed)').forEach(displayMathEl => {
-        displayMathEl.classList.add('obsidian-processed');
+    // 2. Block-Formeln finden & mit prominentem "Formel bearbeiten"-Button versehen
+    const blockMathSelectors = [
+      'mjx-container[display="true"]:not(.obsidian-processed)',
+      'mjx-container.MathJax[display="true"]:not(.obsidian-processed)',
+      '.katex-display:not(.obsidian-processed)',
+      'div.jp-RenderedMath:not(.obsidian-processed)',
+      'span.jp-RenderedMath[display="true"]:not(.obsidian-processed)',
+      'div.MathJax_Display:not(.obsidian-processed)',
+      '.jp-RenderedMath[data-display="true"]:not(.obsidian-processed)'
+    ];
 
-        const annotation = displayMathEl.querySelector('annotation[encoding="application/x-tex"]') || displayMathEl.querySelector('annotation');
-        const exactLatex = annotation ? annotation.textContent?.trim() || '' : displayMathEl.textContent?.trim() || '';
+    const blockMathElements: HTMLElement[] = Array.from(renderedArea.querySelectorAll(blockMathSelectors.join(', ')));
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'obsidian-math-block-wrapper';
-        displayMathEl.parentNode?.insertBefore(wrapper, displayMathEl);
-        wrapper.appendChild(displayMathEl);
-
-        const editBtn = document.createElement('button');
-        editBtn.className = 'obsidian-math-edit-btn';
-        editBtn.innerHTML = `
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
-          <span>Formel bearbeiten</span>
-        `;
-
-        const openHandler = (e: Event) => {
-          e.stopPropagation();
-          const src = cell.model.sharedModel.getSource();
-          const matchedFormula = findFormulaInSource(src, exactLatex, true);
-          openMathEditorModal(cell, matchedFormula || undefined, exactLatex, true);
-        };
-
-        editBtn.addEventListener('click', openHandler);
-        wrapper.addEventListener('click', openHandler);
-        wrapper.appendChild(editBtn);
-      });
-
-      // 3. Inline-Formeln (.katex, span.jp-RenderedMath) mit Edit-Badge versehen
-      renderedArea.querySelectorAll('.katex:not(.katex-display .katex):not(.obsidian-processed), span.jp-RenderedMath:not(.obsidian-processed)').forEach(inlineMathEl => {
-        inlineMathEl.classList.add('obsidian-processed');
-
-        const annotation = inlineMathEl.querySelector('annotation[encoding="application/x-tex"]') || inlineMathEl.querySelector('annotation');
-        const exactLatex = annotation ? annotation.textContent?.trim() || '' : inlineMathEl.textContent?.trim() || '';
-
-        const wrapper = document.createElement('span');
-        wrapper.className = 'obsidian-inline-math-wrapper';
-        wrapper.title = `Formel bearbeiten ($${exactLatex}$)`;
-        inlineMathEl.parentNode?.insertBefore(wrapper, inlineMathEl);
-        wrapper.appendChild(inlineMathEl);
-
-        const editBadge = document.createElement('span');
-        editBadge.className = 'obsidian-inline-edit-btn';
-        editBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>`;
-        wrapper.appendChild(editBadge);
-
-        wrapper.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const src = cell.model.sharedModel.getSource();
-          const matchedFormula = findFormulaInSource(src, exactLatex, false);
-          openMathEditorModal(cell, matchedFormula || undefined, exactLatex, false);
-        });
-      });
-
-      // 4. Obsidian Callouts stylen
-      renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
-        const p = bq.querySelector('p');
-        if (!p) return;
-        const match = p.innerHTML.match(/^\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER)\](.*)/i);
-        if (match) {
-          const type = match[1].toUpperCase();
-          const title = match[2].trim() || type;
-          bq.classList.add('obsidian-callout', `obsidian-callout-${type.toLowerCase()}`);
-          p.innerHTML = `<div class="obsidian-callout-header"><span class="obsidian-callout-badge">${type}</span> <strong>${title}</strong></div>` + p.innerHTML.replace(/^\[!.*?\]/, '');
+    // Falls MathJax ohne display="true" Attribut gerendert hat, aber die Zelle Block-Formeln enthält
+    if (blockMathElements.length === 0 && blockFormulas.length > 0) {
+      renderedArea.querySelectorAll('.jp-RenderedMath:not(.obsidian-processed)').forEach(el => {
+        const parentTag = el.parentElement?.tagName.toLowerCase();
+        if (parentTag === 'p' || parentTag === 'div') {
+          blockMathElements.push(el as HTMLElement);
         }
       });
     }
+
+    blockMathElements.forEach((displayMathEl, bIdx) => {
+      displayMathEl.classList.add('obsidian-processed');
+
+      // Finde die exakte Formel aus dem Quelltext
+      let targetFormula = blockFormulas[bIdx];
+
+      // Prüfe Annotation / data-tex für noch präziseres Matching
+      const annotation = displayMathEl.querySelector('annotation[encoding="application/x-tex"]') || displayMathEl.querySelector('annotation');
+      const annoText = annotation?.textContent?.trim();
+      if (annoText) {
+        const found = blockFormulas.find(f => f.latex === annoText || f.latex.replace(/\s+/g, ' ') === annoText.replace(/\s+/g, ' '));
+        if (found) targetFormula = found;
+      }
+
+      const exactLatex = targetFormula ? targetFormula.latex : (annoText || displayMathEl.textContent?.trim() || '');
+      const exactRaw = targetFormula ? targetFormula.raw : undefined;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'obsidian-math-block-wrapper';
+      wrapper.title = exactLatex ? `Formel bearbeiten ($$${exactLatex}$$)` : 'Formel bearbeiten';
+      displayMathEl.parentNode?.insertBefore(wrapper, displayMathEl);
+      wrapper.appendChild(displayMathEl);
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'obsidian-math-edit-btn';
+      editBtn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
+        <span>Formel bearbeiten</span>
+      `;
+
+      const openHandler = (e: Event) => {
+        e.stopPropagation();
+        openMathEditorModal(cell, exactRaw, exactLatex, true);
+      };
+
+      editBtn.addEventListener('click', openHandler);
+      wrapper.addEventListener('click', openHandler);
+      wrapper.appendChild(editBtn);
+    });
+
+    // 3. Inline-Formeln finden & mit Edit-Badge versehen
+    const inlineMathSelectors = [
+      'mjx-container:not([display="true"]):not(.obsidian-processed)',
+      '.katex:not(.katex-display .katex):not(.obsidian-processed)',
+      'span.jp-RenderedMath:not([display="true"]):not(div.jp-RenderedMath span):not(.obsidian-processed)'
+    ];
+
+    const inlineMathElements: HTMLElement[] = Array.from(renderedArea.querySelectorAll(inlineMathSelectors.join(', ')));
+    inlineMathElements.forEach((inlineMathEl, iIdx) => {
+      if (inlineMathEl.closest('.obsidian-math-block-wrapper')) return;
+
+      inlineMathEl.classList.add('obsidian-processed');
+
+      let targetFormula = inlineFormulas[iIdx];
+      const annotation = inlineMathEl.querySelector('annotation[encoding="application/x-tex"]') || inlineMathEl.querySelector('annotation');
+      const annoText = annotation?.textContent?.trim();
+      if (annoText) {
+        const found = inlineFormulas.find(f => f.latex === annoText || f.latex.replace(/\s+/g, ' ') === annoText.replace(/\s+/g, ' '));
+        if (found) targetFormula = found;
+      }
+
+      const exactLatex = targetFormula ? targetFormula.latex : (annoText || inlineMathEl.textContent?.trim() || '');
+      const exactRaw = targetFormula ? targetFormula.raw : undefined;
+
+      const wrapper = document.createElement('span');
+      wrapper.className = 'obsidian-inline-math-wrapper';
+      wrapper.title = exactLatex ? `Formel bearbeiten ($${exactLatex}$)` : 'Formel bearbeiten';
+      inlineMathEl.parentNode?.insertBefore(wrapper, inlineMathEl);
+      wrapper.appendChild(inlineMathEl);
+
+      const editBadge = document.createElement('span');
+      editBadge.className = 'obsidian-inline-edit-btn';
+      editBadge.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>`;
+      wrapper.appendChild(editBadge);
+
+      wrapper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openMathEditorModal(cell, exactRaw, exactLatex, false);
+      });
+    });
+
+    // 4. Obsidian Callouts stylen
+    renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
+      const p = bq.querySelector('p');
+      if (!p) return;
+      const match = p.innerHTML.match(/^\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\](.*)/i);
+      if (match) {
+        const type = match[1].toUpperCase();
+        const title = match[2].trim() || type;
+        bq.classList.add('obsidian-callout', `obsidian-callout-${type.toLowerCase()}`);
+        p.innerHTML = `<div class="obsidian-callout-header"><span class="obsidian-callout-badge">${type}</span> <strong>${title}</strong></div>` + p.innerHTML.replace(/^\[!.*?\]/, '');
+      }
+    });
   });
 }
 
-export default extension;
+const plugins: JupyterFrontEndPlugin<any>[] = [extension];
+export default plugins;
+export { extension, plugins };
