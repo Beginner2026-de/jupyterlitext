@@ -43,6 +43,7 @@ jobs:
           npm install
           npm run build:lib
           python -m jupyter labextension build .
+          touch LICENSE README.md
           python -m pip install .
           cd ..
 
