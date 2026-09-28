@@ -26,4 +26,4 @@ skip-if-exists = ["jupyterlite_obsidian_markdown/labextension/static/remoteEntry
 
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
 build_cmd = "build:prod"
-npm = ["jlpm"]
+npm = ["npm"]
