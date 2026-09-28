@@ -43,7 +43,7 @@ jobs:
           npm install
           npm run build:lib
           python -m jupyter labextension build .
-          python -m pip install -e .
+          python -m pip install .
           cd ..
 
       - name: Install Requirements
