@@ -4,7 +4,6 @@ import {
 } from '@jupyterlab/application';
 import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { MarkdownCell } from '@jupyterlab/cells';
-import katex from 'katex';
 
 /**
  * Obsidian Live Markdown Extension for JupyterLite
@@ -17,10 +16,15 @@ const extension: JupyterFrontEndPlugin<void> = {
   activate: (_app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('[Obsidian Extension] Geladen und aktiv!');
 
+    // CSS-Stile für Obsidian Dark Theme verankern
     injectStyles();
+    loadKaTeXScript();
+
+    // Start-Hinweis
     showObsidianToast('💎 Obsidian Markdown aktiv!');
 
     tracker.widgetAdded.connect((_, notebookPanel: NotebookPanel) => {
+      // Wenn eine Zelle aktiv wird:
       notebookPanel.content.activeCellChanged.connect((_, cell) => {
         document.querySelectorAll('.obsidian-floating-toolbar').forEach(el => el.remove());
         if (cell instanceof MarkdownCell) {
@@ -28,6 +32,7 @@ const extension: JupyterFrontEndPlugin<void> = {
         }
       });
 
+      // Beim Rendern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
       notebookPanel.content.model?.cells.changed.connect(() => {
         transformRenderedMarkdown(notebookPanel);
       });
@@ -36,11 +41,15 @@ const extension: JupyterFrontEndPlugin<void> = {
   }
 };
 
+/**
+ * Verankert das vollständige Obsidian Dark Stylesheet im Browser
+ */
 function injectStyles(): void {
   if (document.getElementById('obsidian-extension-styles')) return;
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
+    /* Toolbar im Obsidian Dark Theme */
     .obsidian-floating-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -104,6 +113,8 @@ function injectStyles(): void {
     .obsidian-tb-btn-primary:hover {
       background: #6d28d9;
     }
+
+    /* Dropdowns */
     .obsidian-dropdown-container {
       position: relative;
       display: inline-block;
@@ -143,6 +154,8 @@ function injectStyles(): void {
       background: #27272a;
       color: #38bdf8;
     }
+
+    /* Modal-Overlays */
     .obsidian-modal-overlay {
       position: fixed;
       inset: 0;
@@ -208,6 +221,8 @@ function injectStyles(): void {
       background: #27272a;
       border-top: 1px solid #3f3f46;
     }
+
+    /* Tabellen-Editor Grid */
     .obsidian-table-grid {
       width: 100%;
       border-collapse: collapse;
@@ -251,6 +266,8 @@ function injectStyles(): void {
       background: #52525b;
       color: white;
     }
+
+    /* Math Chips & Preview */
     .obsidian-chips-group {
       margin-bottom: 12px;
     }
@@ -295,6 +312,8 @@ function injectStyles(): void {
       justify-content: center;
       overflow-x: auto;
     }
+
+    /* Buttons */
     .obsidian-btn {
       padding: 7px 14px;
       border-radius: 6px;
@@ -319,6 +338,8 @@ function injectStyles(): void {
     .obsidian-btn-pri:hover {
       background: #6d28d9;
     }
+
+    /* Rendered Cell Enhancements: Tabellen */
     .obsidian-table-wrapper {
       position: relative;
       margin: 12px 0;
@@ -456,6 +477,8 @@ function injectStyles(): void {
       background: rgba(255, 255, 255, 0.1);
       margin-right: 6px;
     }
+
+    /* Toast */
     .obsidian-toast {
       position: fixed;
       bottom: 24px;
@@ -479,6 +502,36 @@ function injectStyles(): void {
     }
   `;
   document.head.appendChild(styleEl);
+}
+
+/**
+ * Lädt KaTeX für die Live-Vorschau dynamisch ohne npm-Chunk-Konflikte
+ */
+function loadKaTeXScript(): void {
+  if (document.getElementById('obsidian-katex-script')) return;
+  const link = document.createElement('link');
+  link.id = 'obsidian-katex-css';
+  link.rel = 'stylesheet';
+  link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css';
+  document.head.appendChild(link);
+
+  const script = document.createElement('script');
+  script.id = 'obsidian-katex-script';
+  script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js';
+  script.async = true;
+  document.head.appendChild(script);
+}
+
+function renderKaTeXPreview(tex: string, isBlock: boolean): string {
+  const k = (window as any).katex;
+  if (k && typeof k.renderToString === 'function') {
+    try {
+      return k.renderToString(tex.trim(), { displayMode: isBlock, throwOnError: false });
+    } catch (e: any) {
+      return `<span style="color: #f87171; font-size: 12px;">LaTeX Fehler: ${tex}</span>`;
+    }
+  }
+  return `<span style="font-family: monospace; color: #fbbf24; font-size: 13px;">${tex}</span>`;
 }
 
 function showObsidianToast(message: string): void {
@@ -1011,14 +1064,7 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
 
   function renderMathPreview(): void {
     const mode = (modalOverlay.querySelector('input[name="math-mode"]:checked') as HTMLInputElement)?.value === 'block';
-    try {
-      previewDiv.innerHTML = katex.renderToString(texInput.value.trim(), {
-        displayMode: mode,
-        throwOnError: false
-      });
-    } catch (e) {
-      previewDiv.innerHTML = `<span style="color: #f87171; font-size: 12px;">LaTeX Fehler: ${texInput.value}</span>`;
-    }
+    previewDiv.innerHTML = renderKaTeXPreview(texInput.value, mode);
   }
 
   texInput.addEventListener('input', () => {
@@ -1167,3 +1213,5 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
     }
   });
 }
+
+export default extension;
