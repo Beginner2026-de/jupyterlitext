@@ -62,10 +62,11 @@ jobs:
           python -m pip install .
           cd ..
 
+      # Installiere zuerst lokale Wheels und dann requirements.txt mit Verweis auf wheels/
       - name: Install Requirements
         run: |
-          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
           if [ -d wheels ]; then python -m pip install ./wheels/*.whl 2>/dev/null || true; fi
+          if [ -f requirements.txt ]; then python -m pip install -r requirements.txt --find-links wheels || true; fi
 
       - name: Build JupyterLite Site
         run: |
