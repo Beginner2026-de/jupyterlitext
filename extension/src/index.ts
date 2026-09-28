@@ -17,14 +17,10 @@ const extension: JupyterFrontEndPlugin<void> = {
   activate: (_app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('[Obsidian Extension] Geladen und aktiv!');
 
-    // CSS-Stile für Obsidian Dark Theme verankern
     injectStyles();
-
-    // Start-Hinweis
     showObsidianToast('💎 Obsidian Markdown aktiv!');
 
     tracker.widgetAdded.connect((_, notebookPanel: NotebookPanel) => {
-      // Wenn eine Zelle aktiv wird:
       notebookPanel.content.activeCellChanged.connect((_, cell) => {
         document.querySelectorAll('.obsidian-floating-toolbar').forEach(el => el.remove());
         if (cell instanceof MarkdownCell) {
@@ -32,7 +28,6 @@ const extension: JupyterFrontEndPlugin<void> = {
         }
       });
 
-      // Beim Rendern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
       notebookPanel.content.model?.cells.changed.connect(() => {
         transformRenderedMarkdown(notebookPanel);
       });
@@ -41,15 +36,11 @@ const extension: JupyterFrontEndPlugin<void> = {
   }
 };
 
-/**
- * Verankert das vollständige Obsidian Dark Stylesheet im Browser
- */
 function injectStyles(): void {
   if (document.getElementById('obsidian-extension-styles')) return;
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
-    /* Toolbar im Obsidian Dark Theme */
     .obsidian-floating-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -113,8 +104,6 @@ function injectStyles(): void {
     .obsidian-tb-btn-primary:hover {
       background: #6d28d9;
     }
-
-    /* Dropdowns */
     .obsidian-dropdown-container {
       position: relative;
       display: inline-block;
@@ -154,8 +143,6 @@ function injectStyles(): void {
       background: #27272a;
       color: #38bdf8;
     }
-
-    /* Modal-Overlays */
     .obsidian-modal-overlay {
       position: fixed;
       inset: 0;
@@ -221,8 +208,6 @@ function injectStyles(): void {
       background: #27272a;
       border-top: 1px solid #3f3f46;
     }
-
-    /* Tabellen-Editor Grid */
     .obsidian-table-grid {
       width: 100%;
       border-collapse: collapse;
@@ -266,8 +251,6 @@ function injectStyles(): void {
       background: #52525b;
       color: white;
     }
-
-    /* Math Chips & Preview */
     .obsidian-chips-group {
       margin-bottom: 12px;
     }
@@ -312,8 +295,6 @@ function injectStyles(): void {
       justify-content: center;
       overflow-x: auto;
     }
-
-    /* Buttons */
     .obsidian-btn {
       padding: 7px 14px;
       border-radius: 6px;
@@ -338,8 +319,6 @@ function injectStyles(): void {
     .obsidian-btn-pri:hover {
       background: #6d28d9;
     }
-
-    /* Rendered Cell Enhancements */
     .obsidian-table-wrapper {
       position: relative;
       margin: 12px 0;
@@ -369,7 +348,6 @@ function injectStyles(): void {
       background: #3f3f46;
       color: #ffffff;
     }
-
     .obsidian-interactive-math {
       cursor: pointer;
       padding: 1px 4px;
@@ -380,8 +358,6 @@ function injectStyles(): void {
       background: rgba(245, 158, 11, 0.15) !important;
       box-shadow: 0 0 0 1px #f59e0b;
     }
-
-    /* Callouts */
     .obsidian-callout {
       border-left: 4px solid #38bdf8 !important;
       background: rgba(56, 189, 248, 0.08) !important;
@@ -414,8 +390,6 @@ function injectStyles(): void {
       background: rgba(255, 255, 255, 0.1);
       margin-right: 6px;
     }
-
-    /* Toast */
     .obsidian-toast {
       position: fixed;
       bottom: 24px;
@@ -457,9 +431,6 @@ function showObsidianToast(message: string): void {
   }, 4000);
 }
 
-/**
- * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle
- */
 function attachObsidianToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
 
@@ -471,8 +442,6 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
 
   toolbar.innerHTML = `
     <div class="obsidian-tb-brand">💎 Obsidian</div>
-
-    <!-- Überschriften Dropdown -->
     <div class="obsidian-dropdown-container">
       <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="Überschriften">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12M6 20V4M18 20V4"/></svg>
@@ -484,10 +453,7 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
         <button class="obsidian-dropdown-item" data-action="h3"><b>H3 Abschnitt</b></button>
       </div>
     </div>
-
     <div class="obsidian-tb-divider"></div>
-
-    <!-- Formatierungen -->
     <button class="obsidian-tb-btn" title="Fett (Strg+B)" data-action="bold">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 12h9a4 4 0 0 1 0 8H6v-8zm0 0h8a3.5 3.5 0 0 0 0-7H6v7z"/></svg>
     </button>
@@ -503,31 +469,22 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     <button class="obsidian-tb-btn" title="Inline-Code" data-action="code">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
     </button>
-
     <div class="obsidian-tb-divider"></div>
-
-    <!-- Listen -->
     <button class="obsidian-tb-btn" title="Aufzählung (- )" data-action="bullet">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
     </button>
     <button class="obsidian-tb-btn" title="Checkliste (- [ ] )" data-action="checklist">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     </button>
-
     <div class="obsidian-tb-divider"></div>
-
-    <!-- Interaktive Formeln & Tabellen -->
     <button class="obsidian-tb-btn" title="LaTeX Formel-Editor öffnen" data-action="math" style="color: #c084fc;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 7V4H6l6 8-6 8h12v-3"/></svg>
       <span>Formel</span>
     </button>
-
     <button class="obsidian-tb-btn" title="Interaktiven Tabellen-Editor öffnen" data-action="table" style="color: #38bdf8;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
       <span>Tabelle</span>
     </button>
-
-    <!-- Callouts Dropdown -->
     <div class="obsidian-dropdown-container">
       <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="Obsidian Callouts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
@@ -541,16 +498,12 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
         <button class="obsidian-dropdown-item" data-action="callout-important" style="color: #c084fc;">📌 [!IMPORTANT] Wichtig</button>
       </div>
     </div>
-
     <div class="obsidian-tb-divider"></div>
-
-    <!-- Zelle Ausführen / Rendern -->
     <button class="obsidian-tb-btn obsidian-tb-btn-primary" title="Zelle ausführen / rendern (Umschalt+Eingabe)" data-action="render">
       ▶ Rendern
     </button>
   `;
 
-  // Dropdown-Toggle Logik
   toolbar.querySelectorAll('.obsidian-dropdown-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -563,12 +516,10 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     });
   });
 
-  // Schließe Menüs bei Klick außerhalb
   document.addEventListener('click', () => {
     document.querySelectorAll('.obsidian-dropdown-menu').forEach(m => m.classList.remove('show'));
   });
 
-  // Klick-Aktionen auf Buttons
   toolbar.querySelectorAll('[data-action]').forEach(btn => {
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -652,9 +603,6 @@ function insertLinePrefix(cell: MarkdownCell, prefix: string): void {
   cell.model.sharedModel.setSource(newContent);
 }
 
-/**
- * Parsen einer Markdown-Tabelle
- */
 function parseMarkdownTable(raw: string) {
   const lines = raw.trim().split('\n').filter(l => l.trim().startsWith('|') && l.trim().endsWith('|'));
   if (lines.length < 2) return null;
@@ -670,9 +618,6 @@ function parseMarkdownTable(raw: string) {
   return { headers, alignments, rows };
 }
 
-/**
- * Generieren von Markdown aus Tabellen-Daten
- */
 function generateMarkdownTable(headers: string[], alignments: string[], rows: string[][]): string {
   let md = '| ' + headers.join(' | ') + ' |\n';
   md += '| ' + alignments.map(a => a === 'center' ? ':---:' : a === 'right' ? '---:' : '---').join(' | ') + ' |\n';
@@ -683,9 +628,6 @@ function generateMarkdownTable(headers: string[], alignments: string[], rows: st
   return md;
 }
 
-/**
- * Findet alle Markdown-Tabellen im Quelltext
- */
 function extractAllMarkdownTables(src: string): string[] {
   const results: string[] = [];
   const lines = src.split('\n');
@@ -702,9 +644,6 @@ function extractAllMarkdownTables(src: string): string[] {
   return results;
 }
 
-/**
- * INTERAKTIVER TABELLEN-EDITOR (Erstellen & In-Place Bearbeiten)
- */
 function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string): void {
   const existing = document.getElementById('obsidian-table-modal');
   if (existing) existing.remove();
@@ -747,11 +686,9 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
           </div>
           <span style="font-size: 12px; color: #a1a1aa;" id="tb-dim-label"></span>
         </div>
-
         <div style="max-height: 380px; overflow: auto; border: 1px solid #3f3f46; border-radius: 8px; padding: 4px;">
           <table class="obsidian-table-grid" id="tb-grid"></table>
         </div>
-
         <div style="margin-top: 14px;">
           <label style="font-size: 11px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">Markdown Vorschau:</label>
           <pre id="tb-md-preview" style="background: #09090b; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; color: #38bdf8; overflow-x: auto; margin-top: 4px;"></pre>
@@ -774,7 +711,6 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
     dimLabel.textContent = `${currentHeaders.length} Spalten × ${currentRows.length} Zeilen`;
     gridTable.innerHTML = '';
 
-    // Header Zeile
     const thead = document.createElement('thead');
     const headerTr = document.createElement('tr');
     currentHeaders.forEach((h, colIdx) => {
@@ -803,7 +739,6 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
     thead.appendChild(headerTr);
     gridTable.appendChild(thead);
 
-    // Body Zeilen
     const tbody = document.createElement('tbody');
     currentRows.forEach((row, rowIdx) => {
       const tr = document.createElement('tr');
@@ -861,7 +796,6 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   modalOverlay.querySelector('#tb-save')?.addEventListener('click', () => {
     const finalMd = generateMarkdownTable(currentHeaders, currentAlignments, currentRows);
     if (initialTableMarkdown) {
-      // In-Place Update der existierenden Tabelle
       const src = cell.model.sharedModel.getSource();
       if (src.includes(initialTableMarkdown.trim())) {
         cell.model.sharedModel.setSource(src.replace(initialTableMarkdown.trim(), finalMd.trim()));
@@ -877,9 +811,6 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   renderGrid();
 }
 
-/**
- * INTERAKTIVER FORMEL-EDITOR (Erstellen & In-Place Bearbeiten mit Live KaTeX)
- */
 function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string, initialLatex?: string, initialIsBlock?: boolean): void {
   const existing = document.getElementById('obsidian-math-modal');
   if (existing) existing.remove();
@@ -911,7 +842,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
         <button class="obsidian-modal-close">&times;</button>
       </div>
       <div class="obsidian-modal-body">
-        <!-- Schnellauswahl Chips -->
         <div class="obsidian-chips-group">
           <div class="obsidian-chips-title">Matrizen & Vektoren</div>
           <div class="obsidian-chips-row">
@@ -919,7 +849,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
             <button class="obsidian-chip" data-tex="\\begin{bmatrix} x_1 \\\\ x_2 \\\\ x_3 \\end{bmatrix}">[Vektor]</button>
             <button class="obsidian-chip" data-tex="\\det(\\mathbf{A})">Det(A)</button>
           </div>
-
           <div class="obsidian-chips-title">Analysis & Algebra</div>
           <div class="obsidian-chips-row">
             <button class="obsidian-chip" data-tex="\\frac{a}{b}">Bruch (\\frac)</button>
@@ -929,7 +858,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
             <button class="obsidian-chip" data-tex="\\int_{a}^{b} f(x)\\,dx">Integral (\\int)</button>
             <button class="obsidian-chip" data-tex="\\lim_{x \\to \\infty} f(x)">Limes (\\lim)</button>
           </div>
-
           <div class="obsidian-chips-title">Griechische Buchstaben</div>
           <div class="obsidian-chips-row">
             <button class="obsidian-chip" data-tex="\\alpha">α</button>
@@ -943,15 +871,12 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
             <button class="obsidian-chip" data-tex="\\omega">ω</button>
           </div>
         </div>
-
         <label style="font-size: 11px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">LaTeX Code:</label>
         <textarea id="math-tex-input" rows="3" style="width: 100%; box-sizing: border-box; background: #09090b; border: 1px solid #3f3f46; color: #f4f4f5; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 13px; margin: 4px 0 10px 0;"></textarea>
-
         <div style="display: flex; gap: 1rem; font-size: 13px; color: #d4d4d8; margin-bottom: 12px;">
           <label><input type="radio" name="math-mode" value="inline" ${!isBlock ? 'checked' : ''}> Im Fließtext ($...$)</label>
           <label><input type="radio" name="math-mode" value="block" ${isBlock ? 'checked' : ''}> Eigene Zeile / Block ($$...$$)</label>
         </div>
-
         <label style="font-size: 11px; font-weight: 600; color: #a1a1aa; text-transform: uppercase;">Echtzeit KaTeX Vorschau:</label>
         <div id="math-katex-preview" class="obsidian-math-preview"></div>
       </div>
@@ -1010,7 +935,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
     const formatted = isBlockMode ? `\n$$\n${cleanTex}\n$$\n` : `$${cleanTex}$`;
 
     if (initialFormulaMarkdown) {
-      // In-Place Update
       const src = cell.model.sharedModel.getSource();
       if (src.includes(initialFormulaMarkdown.trim())) {
         cell.model.sharedModel.setSource(src.replace(initialFormulaMarkdown.trim(), formatted.trim()));
@@ -1026,9 +950,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
   renderMathPreview();
 }
 
-/**
- * Anreichern der gerenderten Markdown-Zellen mit In-Place Editoren
- */
 function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
   notebookPanel.content.widgets.forEach(widget => {
     if (widget instanceof MarkdownCell) {
@@ -1036,7 +957,6 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       const renderedArea = cell.node.querySelector('.jp-RenderedMarkdown') || cell.node.querySelector('.jp-MarkdownOutput');
       if (!renderedArea) return;
 
-      // 1. Tabellen mit "Tabelle bearbeiten"-Button versehen
       renderedArea.querySelectorAll('table:not(.obsidian-processed)').forEach(table => {
         table.classList.add('obsidian-processed');
         const wrapper = document.createElement('div');
@@ -1056,7 +976,6 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
         wrapper.appendChild(editBtn);
       });
 
-      // 2. Formeln mit Klick-zum-Bearbeiten anreichern
       renderedArea.querySelectorAll('.katex, .MathJax, .jp-RenderedMath:not(.obsidian-processed)').forEach(mathEl => {
         mathEl.classList.add('obsidian-processed', 'obsidian-interactive-math');
         (mathEl as HTMLElement).title = 'Klicken zum Bearbeiten der Formel';
@@ -1076,7 +995,6 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
         });
       });
 
-      // 3. Obsidian Callouts stylen
       renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
         const p = bq.querySelector('p');
         if (!p) return;
@@ -1092,4 +1010,4 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
   });
 }
 
-export default extension;`,,TargetFile:/src/components/ExtensionExportModal.tsx,toolAction:Updating index_ts with full dark Obsidian toolbar in ExtensionExportModal,toolSummary:Update index_ts in ExtensionExportModal}
+export default extension;
