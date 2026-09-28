@@ -441,6 +441,54 @@ function injectStyles(): void {
       border-top: 1px solid #3f3f46;
     }
 
+    /* Vorschau-Tabellen in Live Preview & Split View */
+    .obsidian-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      margin: 12px 0;
+      border-radius: 8px;
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.25));
+      background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    }
+    .obsidian-preview-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--jp-content-font-color1, inherit);
+      font-family: var(--jp-ui-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    }
+    .obsidian-preview-table thead tr {
+      background: var(--jp-layout-color2, #27272a);
+      border-bottom: 2px solid var(--jp-border-color2, rgba(128, 128, 128, 0.3));
+    }
+    .obsidian-preview-table th {
+      padding: 9px 14px;
+      font-weight: 600;
+      color: var(--jp-content-font-color0, #fafafa);
+      border-right: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      white-space: nowrap;
+    }
+    .obsidian-preview-table th:last-child {
+      border-right: none;
+    }
+    .obsidian-preview-table td {
+      padding: 8px 14px;
+      border-top: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      border-right: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      color: var(--jp-content-font-color1, inherit);
+    }
+    .obsidian-preview-table td:last-child {
+      border-right: none;
+    }
+    .obsidian-preview-table tbody tr:nth-child(even) {
+      background: rgba(128, 128, 128, 0.04);
+    }
+    .obsidian-preview-table tbody tr:hover {
+      background: rgba(128, 128, 128, 0.08);
+    }
+
     /* Tabellen-Editor Grid */
     .obsidian-table-grid {
       width: 100%;
@@ -790,6 +838,82 @@ function showObsidianToast(message: string): void {
   }, 4000);
 }
 
+function splitObsidianTableRow(line: string): string[] {
+  const trimmed = line.trim();
+  if (!trimmed) return [];
+  let text = trimmed;
+  if (text.startsWith('|')) text = text.slice(1);
+  if (text.endsWith('|') && !text.endsWith('\\|')) text = text.slice(0, -1);
+
+  const cells: string[] = [];
+  let currentCell = '';
+  let inBackticks = false;
+  let inMath = false;
+  let isEscaped = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (isEscaped) {
+      currentCell += ch;
+      isEscaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      currentCell += ch;
+      isEscaped = true;
+      continue;
+    }
+    if (ch === '`' && !inMath) {
+      inBackticks = !inBackticks;
+      currentCell += ch;
+      continue;
+    }
+    if (ch === '$' && !inBackticks) {
+      inMath = !inMath;
+      currentCell += ch;
+      continue;
+    }
+    if (ch === '|' && !inBackticks && !inMath) {
+      cells.push(currentCell.trim());
+      currentCell = '';
+      continue;
+    }
+    currentCell += ch;
+  }
+  cells.push(currentCell.trim());
+  return cells;
+}
+
+function isObsidianTableDelimiter(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || !trimmed.includes('-')) return false;
+  let inner = trimmed;
+  if (inner.startsWith('|')) inner = inner.slice(1);
+  if (inner.endsWith('|') && !inner.endsWith('\\|')) inner = inner.slice(0, -1);
+  const rawCells = inner.split('|');
+  if (rawCells.length === 0) return false;
+  for (const raw of rawCells) {
+    const cell = raw.trim();
+    if (!cell) return false;
+    if (!/^:?-+:?$/.test(cell)) return false;
+  }
+  return true;
+}
+
+function formatObsidianTableCell(cellText: string): string {
+  let res = cellText;
+  res = res.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => renderKaTeXPreview(tex, true));
+  const inlineRegex = /(?<![\$\\])\$(?!\$)([^\$\n]+?)(?<![\$\\])\$(?!\$)/g;
+  res = res.replace(inlineRegex, (_, tex) => renderKaTeXPreview(tex, false));
+  res = res.replace(/==(.*?)==/g, '<mark style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; padding: 0 4px; border-radius: 3px;">$1</mark>');
+  res = res.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  res = res.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  res = res.replace(/~~(.*?)~~/g, '<del style="color: var(--jp-content-font-color2, #a1a1aa);">$1</del>');
+  res = res.replace(/`([^`]+)`/g, '<code style="background: rgba(128, 128, 128, 0.14); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.18);">$1</code>');
+  res = res.replace(/\\\|/g, '|');
+  return res;
+}
+
 /**
  * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
  */
@@ -798,7 +922,67 @@ function renderObsidianMarkdown(src: string): string {
     return '<div style="color: #71717a; font-style: italic; font-size: 12px; padding: 6px 0;">Kein Inhalt...</div>';
   }
 
-  let html = src;
+  // Normalize line endings
+  const normalizedSrc = src.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalizedSrc.split('\n');
+  const tablePlaceholders: { [key: string]: string } = {};
+  let tableCounter = 0;
+  const processedLines: string[] = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const isTable = i + 1 < lines.length && isObsidianTableDelimiter(lines[i + 1]) && (line.includes('|') || line.trim().startsWith('|'));
+
+    if (isTable) {
+      const tableLines: string[] = [line, lines[i + 1]];
+      i += 2;
+      while (i < lines.length && lines[i].trim().length > 0 && (lines[i].includes('|') || lines[i].trim().startsWith('|'))) {
+        tableLines.push(lines[i]);
+        i++;
+      }
+
+      const headers = splitObsidianTableRow(tableLines[0]);
+      if (headers.length > 0) {
+        const alignCells = splitObsidianTableRow(tableLines[1]);
+        const alignments = alignCells.map(c => {
+          if (c.startsWith(':') && c.endsWith(':')) return 'center';
+          if (c.endsWith(':')) return 'right';
+          return 'left';
+        });
+        const colCount = headers.length;
+
+        let tableHtml = '<div class="obsidian-table-wrapper"><table class="obsidian-preview-table"><thead><tr>';
+        headers.forEach((h, hIdx) => {
+          const align = alignments[hIdx] || 'left';
+          tableHtml += `<th style="text-align: ${align};">${formatObsidianTableCell(h)}</th>`;
+        });
+        tableHtml += '</tr></thead><tbody>';
+
+        for (let r = 2; r < tableLines.length; r++) {
+          const rowCells = splitObsidianTableRow(tableLines[r]);
+          tableHtml += '<tr>';
+          for (let c = 0; c < colCount; c++) {
+            const cellVal = rowCells[c] !== undefined ? rowCells[c] : '';
+            const align = alignments[c] || 'left';
+            tableHtml += `<td style="text-align: ${align};">${formatObsidianTableCell(cellVal)}</td>`;
+          }
+          tableHtml += '</tr>';
+        }
+        tableHtml += '</tbody></table></div>';
+
+        const placeholder = `<!--OBSIDIAN_TABLE_${tableCounter++}-->`;
+        tablePlaceholders[placeholder] = tableHtml;
+        processedLines.push(placeholder);
+        continue;
+      }
+    }
+
+    processedLines.push(line);
+    i++;
+  }
+
+  let html = processedLines.join('\n');
 
   // 1. Block-Gleichungen ($$...$$)
   html = html.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => {
@@ -811,51 +995,37 @@ function renderObsidianMarkdown(src: string): string {
     return `<span class="obsidian-inline-math-wrapper">${renderKaTeXPreview(tex, false)}</span>`;
   });
 
-  // 3. Tabellen (| ... |)
-  html = html.replace(/(?:^|\n)(\|.+?\|\n\|[-: |]+\|\n(?:\|.+?\|\n?)*)/g, (match) => {
-    const lines = match.trim().split('\n');
-    if (lines.length < 2) return match;
-    const headers = lines[0].split('|').map(s => s.trim()).filter(s => s.length > 0);
-    const bodyRows = lines.slice(2).map(line => line.split('|').map(s => s.trim()).filter(s => s.length > 0));
-    
-    let tableHtml = '<div class="obsidian-table-wrapper"><table class="obsidian-table-grid"><thead><tr>';
-    headers.forEach(h => { tableHtml += `<th>${h}</th>`; });
-    tableHtml += '</tr></thead><tbody>';
-    bodyRows.forEach(row => {
-      tableHtml += '<tr>';
-      row.forEach(c => { tableHtml += `<td>${c}</td>`; });
-      tableHtml += '</tr>';
-    });
-    tableHtml += '</tbody></table></div>';
-    return tableHtml;
-  });
-
-  // 4. Obsidian Callouts (> [!NOTE])
+  // 3. Obsidian Callouts (> [!NOTE])
   html = html.replace(/(?:^|\n)> ?\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\] ?(.*(?:\n> ?.*)*)/gi, (_, type, content) => {
     const cleanType = type.toUpperCase();
     const cleanContent = content.replace(/\n> ?/g, '<br>');
     return `<div class="obsidian-callout obsidian-callout-${type.toLowerCase()}"><div class="obsidian-callout-header"><span class="obsidian-callout-badge">${cleanType}</span></div><div style="font-size: 12px; margin-top: 4px;">${cleanContent}</div></div>`;
   });
 
-  // 5. Überschriften
+  // 4. Überschriften
   html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 15px; font-weight: 700; color: var(--jp-content-font-color0, #f4f4f5); margin: 10px 0 6px;">$1</h3>');
   html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 17px; font-weight: 700; color: var(--jp-content-font-color0, #f4f4f5); margin: 12px 0 6px;">$1</h2>');
   html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20px; font-weight: 800; color: var(--jp-content-font-color0, #fafafa); margin: 14px 0 8px;">$1</h1>');
 
-  // 6. Textformatierungen
+  // 5. Textformatierungen
   html = html.replace(/==(.*?)==/g, '<mark style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; padding: 0 4px; border-radius: 3px;">$1</mark>');
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/~~(.*?)~~/g, '<del style="color: var(--jp-content-font-color2, #a1a1aa);">$1</del>');
   html = html.replace(/`([^`]+)`/g, '<code style="background: rgba(128, 128, 128, 0.14); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.18);">$1</code>');
 
-  // 7. Checklisten & Listen
+  // 6. Checklisten & Listen
   html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
   html = html.replace(/^- \[ \] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" disabled> <span>$1</span></div>');
   html = html.replace(/^- (.*$)/gim, '<li style="margin-left: 18px;">$1</li>');
 
   // Absätze / Newlines
   html = html.replace(/\n\n/g, '<br><br>');
+
+  // Tabellen-Platzhalter wiederherstellen
+  for (const placeholder in tablePlaceholders) {
+    html = html.replace(placeholder, tablePlaceholders[placeholder]);
+  }
 
   return html;
 }
