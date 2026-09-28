@@ -98,7 +98,12 @@ function injectStyles(): void {
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
-    /* Toolbar im Obsidian Dark Theme */
+    /* Toolbar im Obsidian Dark Theme - fest verankert DARUNTER */
+    .obsidian-markdown-cell .jp-Cell-inputWrapper {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+    }
     .obsidian-floating-toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -107,12 +112,16 @@ function injectStyles(): void {
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 8px;
-      padding: 5px 8px;
-      margin-bottom: 8px;
-      box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.4);
-      z-index: 50;
+      padding: 6px 10px;
+      margin-top: 8px;
+      margin-bottom: 4px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+      z-index: 20;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #e4e4e7;
+      width: 100%;
+      box-sizing: border-box;
+      clear: both;
     }
     .obsidian-tb-brand {
       font-size: 11px;
@@ -892,13 +901,19 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
 }
 
 /**
- * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle
+ * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
  */
 function attachObsidianToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
 
-  const editorNode = cell.node.querySelector('.jp-Cell-inputArea') || cell.node;
-  if (!editorNode) return;
+  // Vorherige Toolbar-Instanz entfernen (verhindert Dopplungen)
+  const existingToolbar = cell.node.querySelector('.obsidian-floating-toolbar');
+  if (existingToolbar) existingToolbar.remove();
+
+  // WICHTIG: Die Toolbar wird an den .jp-Cell-inputWrapper angehängt (DARUNTER)
+  // und NIEMALS in .jp-Cell-inputArea geprependet (da diese ein horizontales Flex-Layout besitzt und die Toolbar nach links schiebt)
+  const inputWrapper = cell.node.querySelector('.jp-Cell-inputWrapper') || cell.node;
+  if (!inputWrapper) return;
 
   const toolbar = document.createElement('div');
   toolbar.className = 'obsidian-floating-toolbar';
@@ -992,16 +1007,11 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         <span>Source</span>
       </button>
-      <button class="obsidian-tb-mode-btn" data-mode="rendered" title="Gelesen: Fertige Leseansicht (Rendern)">
+      <button class="obsidian-tb-mode-btn" data-mode="rendered" title="Gelesen: Fertige Leseansicht">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         <span>Gelesen</span>
       </button>
     </div>
-
-    <!-- Zelle Ausführen / Rendern -->
-    <button class="obsidian-tb-btn obsidian-tb-btn-primary" title="Zelle ausführen / rendern (Umschalt+Eingabe)" data-action="render" style="margin-left: 4px;">
-      ▶ Rendern
-    </button>
   `;
 
   // Dropdown-Toggle Logik
@@ -1042,7 +1052,8 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
     });
   });
 
-  editorNode.prepend(toolbar);
+  // Fest DARUNTER an den inputWrapper anheften
+  inputWrapper.appendChild(toolbar);
 }
 
 function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
