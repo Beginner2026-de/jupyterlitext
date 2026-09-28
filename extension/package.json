@@ -24,7 +24,7 @@
     "extension": true,
     "outputDir": "jupyterlite_obsidian_markdown/labextension"
   },
-"scripts": {
+  "scripts": {
     "clean": "rimraf lib tsconfig.tsbuildinfo jupyterlite_obsidian_markdown/labextension",
     "build:lib": "tsc",
     "build:labextension": "python -m jupyter labextension build .",
@@ -35,8 +35,7 @@
   "dependencies": {
     "@jupyterlab/application": "^4.0.0",
     "@jupyterlab/notebook": "^4.0.0",
-    "@jupyterlab/cells": "^4.0.0",
-    "katex": "^0.16.11"
+    "@jupyterlab/cells": "^4.0.0"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^4.0.0",
