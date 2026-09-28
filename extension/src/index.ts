@@ -219,10 +219,10 @@ function injectStyles(): void {
       align-items: stretch !important;
     }
     .obsidian-split-preview {
-      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.05));
-      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.2));
       border-radius: 8px;
-      padding: 12px 16px;
+      padding: 14px 18px;
       overflow-y: auto;
       max-height: 520px;
       min-height: 180px;
@@ -230,17 +230,19 @@ function injectStyles(): void {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       line-height: 1.6;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     }
     .obsidian-live-preview {
-      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.05));
-      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.2));
       border-radius: 8px;
-      padding: 12px 16px;
+      padding: 14px 18px;
       margin-top: 10px;
       color: var(--jp-content-font-color1, inherit);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 13px;
       line-height: 1.6;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     }
     .obsidian-preview-header {
       font-size: 11px;
@@ -268,6 +270,16 @@ function injectStyles(): void {
       border-radius: 50%;
       background: #34d399;
       display: inline-block;
+    }
+    .obsidian-preview-body {
+      color: var(--jp-content-font-color1, inherit);
+    }
+    .obsidian-preview-body .MathJax,
+    .obsidian-preview-body mjx-container,
+    .obsidian-preview-body .katex,
+    .obsidian-preview-body .katex-display,
+    .obsidian-preview-body .katex-html {
+      color: var(--jp-content-font-color1, inherit) !important;
     }
 
     /* Dropdowns */
@@ -531,9 +543,9 @@ function injectStyles(): void {
       position: relative;
       margin: 12px 0;
       padding: 14px 16px;
-      background: var(--jp-layout-color2, rgba(128, 128, 128, 0.06));
+      background: rgba(128, 128, 128, 0.05);
       color: var(--jp-content-font-color1, inherit);
-      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
+      border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.18));
       border-radius: 8px;
       overflow-x: auto;
       text-align: center;
@@ -552,6 +564,8 @@ function injectStyles(): void {
     .obsidian-math-block-wrapper .MathJax,
     .obsidian-math-block-wrapper mjx-container,
     .obsidian-math-block-wrapper .katex,
+    .obsidian-math-block-wrapper .katex-display,
+    .obsidian-math-block-wrapper .katex-html,
     .obsidian-math-block-wrapper .jp-RenderedMath {
       color: var(--jp-content-font-color1, inherit) !important;
     }
@@ -577,7 +591,7 @@ function injectStyles(): void {
       gap: 5px;
     }
     .obsidian-math-edit-btn:hover {
-      background: var(--jp-layout-color2, #3f3f46);
+      background: rgba(128, 128, 128, 0.2);
       color: #f59e0b;
       border-color: #f59e0b;
     }
@@ -773,16 +787,16 @@ function renderObsidianMarkdown(src: string): string {
   });
 
   // 5. Überschriften
-  html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 15px; font-weight: 700; color: #f4f4f5; margin: 10px 0 6px;">$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 17px; font-weight: 700; color: #f4f4f5; margin: 12px 0 6px;">$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20px; font-weight: 800; color: #fafafa; margin: 14px 0 8px;">$1</h1>');
+  html = html.replace(/^### (.*$)/gim, '<h3 style="font-size: 15px; font-weight: 700; color: var(--jp-content-font-color0, #f4f4f5); margin: 10px 0 6px;">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 style="font-size: 17px; font-weight: 700; color: var(--jp-content-font-color0, #f4f4f5); margin: 12px 0 6px;">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 style="font-size: 20px; font-weight: 800; color: var(--jp-content-font-color0, #fafafa); margin: 14px 0 8px;">$1</h1>');
 
   // 6. Textformatierungen
   html = html.replace(/==(.*?)==/g, '<mark style="background: rgba(251, 191, 36, 0.2); color: #fbbf24; padding: 0 4px; border-radius: 3px;">$1</mark>');
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  html = html.replace(/~~(.*?)~~/g, '<del style="color: #a1a1aa;">$1</del>');
-  html = html.replace(/`([^`]+)`/g, '<code style="background: #27272a; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: #38bdf8;">$1</code>');
+  html = html.replace(/~~(.*?)~~/g, '<del style="color: var(--jp-content-font-color2, #a1a1aa);">$1</del>');
+  html = html.replace(/`([^`]+)`/g, '<code style="background: rgba(128, 128, 128, 0.14); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.18);">$1</code>');
 
   // 7. Checklisten & Listen
   html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
