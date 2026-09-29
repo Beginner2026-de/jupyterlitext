@@ -1590,6 +1590,22 @@ function clearFormattingInCell(cell: MarkdownCell): void {
         const selectedText = src.substring(startOffset, endOffset);
         const cleaned = stripMarkdownFormatting(selectedText);
         cell.model.sharedModel.setSource(src.substring(0, startOffset) + cleaned + src.substring(endOffset));
+
+        setTimeout(() => {
+          try {
+            editor.focus();
+            if (typeof editor.getPositionAt === 'function') {
+              const newStartPos = editor.getPositionAt(startOffset);
+              const newEndPos = editor.getPositionAt(startOffset + cleaned.length);
+              editor.setSelection({ start: newStartPos, end: newEndPos });
+            } else {
+              editor.setCursorPosition(selection.start);
+            }
+          } catch (err) {
+            console.error('Could not restore selection', err);
+          }
+        }, 20);
+
         showNemeToast('Formatierung gelöscht');
         return;
       }
@@ -1597,8 +1613,24 @@ function clearFormattingInCell(cell: MarkdownCell): void {
     const pos = editor.getCursorPosition();
     const lines = src.split('\n');
     if (lines[pos.line] !== undefined) {
-      lines[pos.line] = stripMarkdownFormatting(lines[pos.line]);
+      const originalLine = lines[pos.line];
+      const prefixBeforeCursor = originalLine.substring(0, pos.column);
+      const cleanedPrefix = stripMarkdownFormatting(prefixBeforeCursor);
+      const cleanedLine = stripMarkdownFormatting(originalLine);
+      const newColumn = Math.min(cleanedPrefix.length, cleanedLine.length);
+
+      lines[pos.line] = cleanedLine;
       cell.model.sharedModel.setSource(lines.join('\n'));
+
+      setTimeout(() => {
+        try {
+          editor.focus();
+          editor.setCursorPosition({ line: pos.line, column: newColumn });
+        } catch (err) {
+          console.error('Could not restore cursor position', err);
+        }
+      }, 20);
+
       showNemeToast('Formatierung gelöscht');
     }
   } catch (e) {
