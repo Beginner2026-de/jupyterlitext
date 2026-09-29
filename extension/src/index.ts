@@ -1764,36 +1764,63 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
           <div class="obsidian-chips-title">Matrizen & Vektoren</div>
           <div class="obsidian-chips-row">
             <button class="obsidian-chip" data-tex="\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}">(2x2 Matrix)</button>
-            <button class="obsidian-chip" data-tex="\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}">(3x3 Matrix)</button>
-            <button class="obsidian-chip" data-tex="\\begin{bmatrix} x_1 \\\\ x_2 \\\\ x_3 \\end{bmatrix}">[Vektor]</button>
-            <button class="obsidian-chip" data-tex="\\det(\\mathbf{A})">Det(A)</button>
-            <button class="obsidian-chip" data-tex="\\mathbf{I}">Einheitsmatrix</button>
+            <button class="obsidian-chip" data-tex="\\begin{bmatrix} a_{11} & a_{12} & a_{13} \\\\ a_{21} & a_{22} & a_{23} \\\\ a_{31} & a_{32} & a_{33} \\end{bmatrix}">[3x3 Matrix]</button>
+            <button class="obsidian-chip" data-tex="\\mathbf{v} = \\begin{pmatrix} v_1 \\\\ v_2 \\\\ v_3 \\end{pmatrix}">[Spaltenvektor]</button>
           </div>
 
-          <div class="obsidian-chips-title">Analysis & Bausteine</div>
+          <div class="obsidian-chips-title">Data Science & Machine Learning</div>
+          <div class="obsidian-chips-row">
+            <button class="obsidian-chip" data-tex="\\hat{y} = \\mathbf{X}\\boldsymbol{\\beta} + \\boldsymbol{\\epsilon}">Lineare Regression</button>
+            <button class="obsidian-chip" data-tex="\\text{MSE} = \\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2">MSE</button>
+            <button class="obsidian-chip" data-tex="\\sigma(z) = \\frac{1}{1 + e^{-z}}">Sigmoid</button>
+            <button class="obsidian-chip" data-tex="\\sigma(\\mathbf{z})_i = \\frac{e^{z_i}}{\\sum_{j=1}^{K} e^{z_j}}">Softmax</button>
+            <button class="obsidian-chip" data-tex="P(A \\mid B) = \\frac{P(B \\mid A) \\, P(A)}{P(B)}">Bayes</button>
+            <button class="obsidian-chip" data-tex="\\bar{x} = \\frac{1}{n} \\sum_{i=1}^{n} x_i">Mittelwert</button>
+          </div>
+
+          <div class="obsidian-chips-title">Operatoren & Bausteine</div>
           <div class="obsidian-chips-row">
             <button class="obsidian-chip" data-tex="\\frac{a}{b}">Bruch (\\frac)</button>
-            <button class="obsidian-chip" data-tex="x^{2} + y^{2} = r^{2}">Potenz (x^2)</button>
-            <button class="obsidian-chip" data-tex="\\sqrt{x^2 + y^2}">Wurzel (\\sqrt)</button>
-            <button class="obsidian-chip" data-tex="\\sum_{i=1}^{n} x_i">Summe (\\sum)</button>
-            <button class="obsidian-chip" data-tex="\\int_{a}^{b} f(x)\\,dx">Integral (\\int)</button>
-            <button class="obsidian-chip" data-tex="\\lim_{x \\to \\infty} f(x)">Limes (\\lim)</button>
-            <button class="obsidian-chip" data-tex="\\vec{v}">Vektorpfeil</button>
+            <button class="obsidian-chip" data-tex="\\dfrac{a}{b}">Display-Bruch (\\dfrac)</button>
+            <button class="obsidian-chip" data-tex="\\text{.}">Formatierung \\text{.}</button>
+            <button class="obsidian-chip" data-tex="x^{2}">Potenz (x^2)</button>
+            <button class="obsidian-chip" data-tex="x_{i}">Index (x_i)</button>
+            <button class="obsidian-chip" data-tex="\\sqrt{x}">Wurzel (\\sqrt)</button>
+            <button class="obsidian-chip" data-tex="\\sqrt[n]{x}">n-te Wurzel</button>
+            <button class="obsidian-chip" data-tex="\\prod_{i=1}^{n}">Produkt (\\prod)</button>
+            <button class="obsidian-chip" data-tex="\\mathbf{X}">Fett (\\mathbf)</button>
+            <button class="obsidian-chip" data-tex="\\infty">∞</button>
+            <button class="obsidian-chip" data-tex="\\nabla">∇</button>
+            <button class="obsidian-chip" data-tex="\\in">∈</button>
+            <button class="obsidian-chip" data-tex="\\subset">⊂</button>
+            <button class="obsidian-chip" data-tex="\\approx">≈</button>
+            <button class="obsidian-chip" data-tex="\\neq">≠</button>
+            <button class="obsidian-chip" data-tex="\\le">≤</button>
+            <button class="obsidian-chip" data-tex="\\ge">≥</button>
+            <button class="obsidian-chip" data-tex="\\pm">±</button>
           </div>
 
           <div class="obsidian-chips-title">Griechische Symbole</div>
           <div class="obsidian-chips-row">
-            <button class="obsidian-chip" data-tex="\\alpha">α</button>
-            <button class="obsidian-chip" data-tex="\\beta">β</button>
-            <button class="obsidian-chip" data-tex="\\gamma">γ</button>
-            <button class="obsidian-chip" data-tex="\\theta">θ</button>
-            <button class="obsidian-chip" data-tex="\\lambda">λ</button>
-            <button class="obsidian-chip" data-tex="\\mu">μ</button>
-            <button class="obsidian-chip" data-tex="\\pi">π</button>
-            <button class="obsidian-chip" data-tex="\\sigma">σ</button>
-            <button class="obsidian-chip" data-tex="\\Delta">Δ</button>
-            <button class="obsidian-chip" data-tex="\\Sigma">Σ</button>
-            <button class="obsidian-chip" data-tex="\\omega">ω</button>
+            <button class="obsidian-chip" data-tex="\\alpha">α (alpha)</button>
+            <button class="obsidian-chip" data-tex="\\beta">β (beta)</button>
+            <button class="obsidian-chip" data-tex="\\gamma">γ (gamma)</button>
+            <button class="obsidian-chip" data-tex="\\delta">δ (delta)</button>
+            <button class="obsidian-chip" data-tex="\\epsilon">ε (epsilon)</button>
+            <button class="obsidian-chip" data-tex="\\theta">θ (theta)</button>
+            <button class="obsidian-chip" data-tex="\\lambda">λ (lambda)</button>
+            <button class="obsidian-chip" data-tex="\\mu">μ (mu)</button>
+            <button class="obsidian-chip" data-tex="\\pi">π (pi)</button>
+            <button class="obsidian-chip" data-tex="\\sigma">σ (sigma)</button>
+            <button class="obsidian-chip" data-tex="\\tau">τ (tau)</button>
+            <button class="obsidian-chip" data-tex="\\phi">φ (phi)</button>
+            <button class="obsidian-chip" data-tex="\\psi">ψ (psi)</button>
+            <button class="obsidian-chip" data-tex="\\omega">ω (omega)</button>
+            <button class="obsidian-chip" data-tex="\\Delta">Δ (Delta)</button>
+            <button class="obsidian-chip" data-tex="\\Theta">Θ (Theta)</button>
+            <button class="obsidian-chip" data-tex="\\Lambda">Λ (Lambda)</button>
+            <button class="obsidian-chip" data-tex="\\Sigma">Σ (Sigma)</button>
+            <button class="obsidian-chip" data-tex="\\Omega">Ω (Omega)</button>
           </div>
         </div>
 
@@ -1841,7 +1868,11 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
       if (tex) {
         const start = texInput.selectionStart;
         const end = texInput.selectionEnd;
-        if (start !== undefined && end !== undefined && start !== end) {
+        if (tex === '\\text{.}' && start !== undefined && end !== undefined && start !== end) {
+          const selected = texInput.value.substring(start, end);
+          const wrapped = '\\text{' + selected + '}';
+          texInput.value = texInput.value.substring(0, start) + wrapped + texInput.value.substring(end);
+        } else if (start !== undefined && end !== undefined && start !== end) {
           texInput.value = texInput.value.substring(0, start) + tex + texInput.value.substring(end);
         } else if (start !== undefined && end !== undefined) {
           texInput.value = texInput.value.substring(0, start) + tex + texInput.value.substring(start);
