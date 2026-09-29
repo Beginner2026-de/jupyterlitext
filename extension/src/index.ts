@@ -53,7 +53,7 @@ const extension: JupyterFrontEndPlugin<void> = {
             if (args && args.name === 'mode') {
               const activeCell = notebookPanel.content.activeCell as MarkdownCell | null;
               if (activeCell && (activeCell.model?.type === 'markdown' || (activeCell as any).cellType === 'markdown' || activeCell.node.classList.contains('jp-MarkdownCell'))) {
-                if (args.newValue === 'edit') {
+                if (args.newValue === 'edit' && activeCell.rendered === false) {
                   if ((activeCell as any)._obsidianMode === 'rendered') {
                     const nextMode = (activeCell as any)._lastEditMode || 'live';
                     setCellEditorMode(activeCell, nextMode);
@@ -1613,35 +1613,22 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   // Toolbar Buttons deaktivieren wenn Zelle im Lesemodus ist
   updateToolbarDisabledState(toolbar, curMode === 'rendered');
 
-  // 1. Synchronisation bei Doppelklick (Capturing Phase, bevor JupyterLab event.stopPropagation ausführt!)
+  // Synchronisation NUR bei Doppelklick (Capturing Phase, bevor JupyterLab event.stopPropagation ausführt!)
   if (!(cell as any)._obsidianDblClickAttached) {
     (cell as any)._obsidianDblClickAttached = true;
-    cell.node.addEventListener('dblclick', () => {
+    cell.node.addEventListener('dblclick', (e) => {
+      // Nicht auslösen wenn direkt auf Toolbar-Buttons geklickt wurde
+      if ((e.target as HTMLElement)?.closest('.obsidian-floating-toolbar')) return;
       setTimeout(() => {
         if ((cell as any)._obsidianMode === 'rendered') {
           const nextMode = (cell as any)._lastEditMode || 'live';
           setCellEditorMode(cell, nextMode);
         }
-      }, 40);
+      }, 50);
     }, true);
   }
 
-  // 2. Synchronisation bei Fokus im Editorbereich (CodeMirror / inputArea)
-  if (!(cell as any)._obsidianFocusInAttached) {
-    (cell as any)._obsidianFocusInAttached = true;
-    cell.node.addEventListener('focusin', () => {
-      setTimeout(() => {
-        const isInputFocused = cell.node.querySelector('.jp-Cell-inputArea')?.contains(document.activeElement) ||
-                              cell.node.querySelector('.cm-content')?.contains(document.activeElement);
-        if (isInputFocused && (cell as any)._obsidianMode === 'rendered') {
-          const nextMode = (cell as any)._lastEditMode || 'live';
-          setCellEditorMode(cell, nextMode);
-        }
-      }, 30);
-    });
-  }
-
-  // 3. Tastatur-Enter Erkennung (JupyterLab Command Mode -> Edit Mode bei Tastendruck Enter)
+  // Tastatur-Enter Erkennung (JupyterLab Command Mode -> Edit Mode bei Tastendruck Enter)
   if (!(cell as any)._obsidianEnterAttached) {
     (cell as any)._obsidianEnterAttached = true;
     cell.node.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -1651,19 +1638,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
             const nextMode = (cell as any)._lastEditMode || 'live';
             setCellEditorMode(cell, nextMode);
           }
-        }, 40);
-      }
-    });
-  }
-
-  // 4. Klick in den Editorbereich (InputArea / CodeMirror)
-  const inputArea = cell.node.querySelector('.jp-Cell-inputArea') || cell.node.querySelector('.jp-InputArea');
-  if (inputArea && !(cell as any)._obsidianInputClickAttached) {
-    (cell as any)._obsidianInputClickAttached = true;
-    inputArea.addEventListener('click', () => {
-      if ((cell as any)._obsidianMode === 'rendered') {
-        const nextMode = (cell as any)._lastEditMode || 'live';
-        setCellEditorMode(cell, nextMode);
+        }, 50);
       }
     });
   }
