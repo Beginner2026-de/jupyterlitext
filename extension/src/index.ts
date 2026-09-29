@@ -6,28 +6,28 @@ import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { MarkdownCell } from '@jupyterlab/cells';
 
 /**
- * Obsidian Live Markdown Extension for JupyterLite
- * Complete Obsidian-like experience:
- * - Dark Obsidian Floating Toolbar with SVG icons & dropdowns
+ * NEME Live Markdown Extension for JupyterLite
+ * Complete NEME-like experience:
+ * - Dark NEME Floating Toolbar with SVG icons & dropdowns
  * - Interactive Table Grid Editor (create, edit in-place, alignments, live preview)
  * - Interactive KaTeX Math Formula Builder (chips, live preview, in-place update)
  * - Hover 'Tabelle bearbeiten' on rendered tables & 'Formel bearbeiten' on formulas
- * - Obsidian Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
+ * - NEME Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
  */
 const extension: JupyterFrontEndPlugin<void> = {
-  id: 'jupyterlite-obsidian-markdown:plugin',
-  description: 'Obsidian Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
+  id: 'jupyterlite-neme-markdown:plugin',
+  description: 'NEME Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
   autoStart: true,
   optional: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker | null) => {
-    console.log('[Obsidian Extension] Geladen und aktiv!');
+    console.log('[NEME Extension] Geladen und aktiv!');
 
-    // CSS-Stile für Obsidian Dark Theme verankern
+    // CSS-Stile für NEME Dark Theme verankern
     injectStyles();
     loadKaTeXScript();
 
     // Start-Hinweis
-    showObsidianToast('💎 Obsidian Markdown aktiv!');
+    showNemeToast('NEME Markdown aktiv!');
 
     const setupNotebook = (notebookPanel: NotebookPanel) => {
       if (!notebookPanel || (notebookPanel as any)._obsidianObserved) return;
@@ -41,7 +41,7 @@ const extension: JupyterFrontEndPlugin<void> = {
       notebookPanel.content.activeCellChanged.connect((_, cell) => {
         document.querySelectorAll('.obsidian-floating-toolbar').forEach(el => el.remove());
         if (cell && (cell.model?.type === 'markdown' || (cell as any).cellType === 'markdown' || cell.node.classList.contains('jp-MarkdownCell'))) {
-          attachObsidianToolbar(cell as MarkdownCell);
+          attachNemeToolbar(cell as MarkdownCell);
         }
         setTimeout(() => transformRenderedMarkdown(notebookPanel), 100);
       });
@@ -91,14 +91,14 @@ const extension: JupyterFrontEndPlugin<void> = {
 };
 
 /**
- * Verankert das vollständige Obsidian Dark Stylesheet im Browser
+ * Verankert das vollständige NEME Dark Stylesheet im Browser
  */
 function injectStyles(): void {
   if (document.getElementById('obsidian-extension-styles')) return;
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
-    /* Toolbar im Obsidian Dark Theme - fest verankert DARUNTER */
+    /* Toolbar im NEME Dark Theme - fest verankert DARUNTER */
     .obsidian-markdown-cell .jp-Cell-inputWrapper {
       display: flex !important;
       flex-direction: column !important;
@@ -822,7 +822,7 @@ function renderKaTeXPreview(tex: string, isBlock: boolean): string {
   return `<span style="font-family: monospace; color: #fbbf24; font-size: 13px;">${tex}</span>`;
 }
 
-function showObsidianToast(message: string): void {
+function showNemeToast(message: string): void {
   const existing = document.getElementById('obsidian-toast');
   if (existing) existing.remove();
 
@@ -838,7 +838,7 @@ function showObsidianToast(message: string): void {
   }, 4000);
 }
 
-function splitObsidianTableRow(line: string): string[] {
+function splitNemeTableRow(line: string): string[] {
   const trimmed = line.trim();
   if (!trimmed) return [];
   let text = trimmed;
@@ -884,7 +884,7 @@ function splitObsidianTableRow(line: string): string[] {
   return cells;
 }
 
-function isObsidianTableDelimiter(line: string): boolean {
+function isNemeTableDelimiter(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed || !trimmed.includes('-')) return false;
   let inner = trimmed;
@@ -900,7 +900,7 @@ function isObsidianTableDelimiter(line: string): boolean {
   return true;
 }
 
-function formatObsidianTableCell(cellText: string): string {
+function formatNemeTableCell(cellText: string): string {
   let res = cellText;
   res = res.replace(/\$\$([\s\S]*?)\$\$/g, (_, tex) => renderKaTeXPreview(tex, true));
   const inlineRegex = /(?<![\$\\])\$(?!\$)([^\$\n]+?)(?<![\$\\])\$(?!\$)/g;
@@ -917,7 +917,7 @@ function formatObsidianTableCell(cellText: string): string {
 /**
  * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
  */
-function renderObsidianMarkdown(src: string): string {
+function renderNemeMarkdown(src: string): string {
   if (!src || src.trim().length === 0) {
     return '<div style="color: #71717a; font-style: italic; font-size: 12px; padding: 6px 0;">Kein Inhalt...</div>';
   }
@@ -932,7 +932,7 @@ function renderObsidianMarkdown(src: string): string {
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const isTable = i + 1 < lines.length && isObsidianTableDelimiter(lines[i + 1]) && (line.includes('|') || line.trim().startsWith('|'));
+    const isTable = i + 1 < lines.length && isNemeTableDelimiter(lines[i + 1]) && (line.includes('|') || line.trim().startsWith('|'));
 
     if (isTable) {
       const tableLines: string[] = [line, lines[i + 1]];
@@ -942,9 +942,9 @@ function renderObsidianMarkdown(src: string): string {
         i++;
       }
 
-      const headers = splitObsidianTableRow(tableLines[0]);
+      const headers = splitNemeTableRow(tableLines[0]);
       if (headers.length > 0) {
-        const alignCells = splitObsidianTableRow(tableLines[1]);
+        const alignCells = splitNemeTableRow(tableLines[1]);
         const alignments = alignCells.map(c => {
           if (c.startsWith(':') && c.endsWith(':')) return 'center';
           if (c.endsWith(':')) return 'right';
@@ -955,23 +955,23 @@ function renderObsidianMarkdown(src: string): string {
         let tableHtml = '<div class="obsidian-table-wrapper"><table class="obsidian-preview-table"><thead><tr>';
         headers.forEach((h, hIdx) => {
           const align = alignments[hIdx] || 'left';
-          tableHtml += `<th style="text-align: ${align};">${formatObsidianTableCell(h)}</th>`;
+          tableHtml += `<th style="text-align: ${align};">${formatNemeTableCell(h)}</th>`;
         });
         tableHtml += '</tr></thead><tbody>';
 
         for (let r = 2; r < tableLines.length; r++) {
-          const rowCells = splitObsidianTableRow(tableLines[r]);
+          const rowCells = splitNemeTableRow(tableLines[r]);
           tableHtml += '<tr>';
           for (let c = 0; c < colCount; c++) {
             const cellVal = rowCells[c] !== undefined ? rowCells[c] : '';
             const align = alignments[c] || 'left';
-            tableHtml += `<td style="text-align: ${align};">${formatObsidianTableCell(cellVal)}</td>`;
+            tableHtml += `<td style="text-align: ${align};">${formatNemeTableCell(cellVal)}</td>`;
           }
           tableHtml += '</tr>';
         }
         tableHtml += '</tbody></table></div>';
 
-        const placeholder = `<!--OBSIDIAN_TABLE_${tableCounter++}-->`;
+        const placeholder = `<!--NEME_TABLE_${tableCounter++}-->`;
         tablePlaceholders[placeholder] = tableHtml;
         processedLines.push(placeholder);
         continue;
@@ -995,7 +995,7 @@ function renderObsidianMarkdown(src: string): string {
     return `<span class="obsidian-inline-math-wrapper">${renderKaTeXPreview(tex, false)}</span>`;
   });
 
-  // 3. Obsidian Callouts (> [!NOTE])
+  // 3. NEME Callouts (> [!NOTE])
   html = html.replace(/(?:^|\n)> ?\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\] ?(.*(?:\n> ?.*)*)/gi, (_, type, content) => {
     const cleanType = type.toUpperCase();
     const cleanContent = content.replace(/\n> ?/g, '<br>');
@@ -1037,12 +1037,12 @@ function updateActivePreview(cell: MarkdownCell): void {
   if (mode === 'split') {
     const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body');
     if (preview) {
-      preview.innerHTML = renderObsidianMarkdown(src);
+      preview.innerHTML = renderNemeMarkdown(src);
     }
   } else if (mode === 'live') {
     const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body');
     if (preview) {
-      preview.innerHTML = renderObsidianMarkdown(src);
+      preview.innerHTML = renderNemeMarkdown(src);
     }
   }
 }
@@ -1074,7 +1074,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       editorNode.classList.remove('obsidian-cell-live');
     }
     cell.rendered = true;
-    showObsidianToast('📖 Gelesen (Leseansicht)');
+    showNemeToast('Gelesen (Leseansicht)');
     return;
   }
 
@@ -1097,7 +1097,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       editorNode.classList.remove('obsidian-cell-live');
     }
     cell.editor?.focus();
-    showObsidianToast('📝 Source-Modus (Nur Quelltext)');
+    showNemeToast('Source-Modus (Nur Quelltext)');
     return;
   }
 
@@ -1113,7 +1113,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         splitPreview.className = 'obsidian-split-preview';
         splitPreview.innerHTML = `
           <div class="obsidian-preview-header">
-            <span>📑 Split-Vorschau</span>
+            <span>Split-Vorschau</span>
             <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Live KaTeX</span>
           </div>
           <div class="obsidian-preview-body"></div>
@@ -1123,7 +1123,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       updateActivePreview(cell);
     }
     cell.editor?.focus();
-    showObsidianToast('📑 Split-Ansicht aktiv');
+    showNemeToast('Split-Ansicht aktiv');
     return;
   }
 
@@ -1139,7 +1139,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         livePreview.className = 'obsidian-live-preview';
         livePreview.innerHTML = `
           <div class="obsidian-preview-header">
-            <span>👁️ Live Preview (KaTeX & Markdown)</span>
+            <span>Live Preview (KaTeX & Markdown)</span>
             <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Echtzeit</span>
           </div>
           <div class="obsidian-preview-body"></div>
@@ -1149,15 +1149,15 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       updateActivePreview(cell);
     }
     cell.editor?.focus();
-    showObsidianToast('👁️ Live Preview aktiv');
+    showNemeToast('Live Preview aktiv');
     return;
   }
 }
 
 /**
- * Hängt die vollständige Obsidian Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
+ * Hängt die vollständige NEME Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
  */
-function attachObsidianToolbar(cell: MarkdownCell): void {
+function attachNemeToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
 
   // Vorherige Toolbar-Instanz entfernen (verhindert Dopplungen)
@@ -1173,7 +1173,7 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
   toolbar.className = 'obsidian-floating-toolbar';
 
   toolbar.innerHTML = `
-    <div class="obsidian-tb-brand">💎 Obsidian</div>
+    <div class="obsidian-tb-brand">NEME</div>
 
     <!-- Überschriften Dropdown -->
     <div class="obsidian-dropdown-container">
@@ -1232,16 +1232,16 @@ function attachObsidianToolbar(cell: MarkdownCell): void {
 
     <!-- Callouts Dropdown -->
     <div class="obsidian-dropdown-container">
-      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="Obsidian Callouts">
+      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="NEME Callouts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
         <span>Callout</span>
       </button>
       <div class="obsidian-dropdown-menu">
-        <button class="obsidian-dropdown-item" data-action="callout-note" style="color: #38bdf8;">ℹ️ [!NOTE] Hinweis</button>
-        <button class="obsidian-dropdown-item" data-action="callout-tip" style="color: #34d399;">💡 [!TIP] Tipp</button>
-        <button class="obsidian-dropdown-item" data-action="callout-warning" style="color: #fbbf24;">⚠️ [!WARNING] Warnung</button>
-        <button class="obsidian-dropdown-item" data-action="callout-caution" style="color: #f87171;">🚨 [!CAUTION] Achtung</button>
-        <button class="obsidian-dropdown-item" data-action="callout-important" style="color: #c084fc;">📌 [!IMPORTANT] Wichtig</button>
+        <button class="obsidian-dropdown-item" data-action="callout-note" style="color: #38bdf8;">[!NOTE] Hinweis</button>
+        <button class="obsidian-dropdown-item" data-action="callout-tip" style="color: #34d399;">[!TIP] Tipp</button>
+        <button class="obsidian-dropdown-item" data-action="callout-warning" style="color: #fbbf24;">[!WARNING] Warnung</button>
+        <button class="obsidian-dropdown-item" data-action="callout-caution" style="color: #f87171;">[!CAUTION] Achtung</button>
+        <button class="obsidian-dropdown-item" data-action="callout-important" style="color: #c084fc;">[!IMPORTANT] Wichtig</button>
       </div>
     </div>
 
@@ -1464,7 +1464,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   modalOverlay.innerHTML = `
     <div class="obsidian-modal" style="max-width: 720px;">
       <div class="obsidian-modal-header">
-        <h3>📊 ${isEditing ? 'Markdown-Tabelle bearbeiten' : 'Neue Tabelle erstellen'}</h3>
+        <h3>${isEditing ? 'Markdown-Tabelle bearbeiten' : 'Neue Tabelle erstellen'}</h3>
         <button class="obsidian-modal-close">&times;</button>
       </div>
       <div class="obsidian-modal-body">
@@ -1489,7 +1489,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
       </div>
       <div class="obsidian-modal-footer">
         <button class="obsidian-btn obsidian-btn-sec" id="tb-cancel">Abbrechen</button>
-        <button class="obsidian-btn obsidian-btn-pri" id="tb-save">${isEditing ? '💾 Tabelle aktualisieren' : 'In Zelle einfügen'}</button>
+        <button class="obsidian-btn obsidian-btn-pri" id="tb-save">${isEditing ? 'Tabelle aktualisieren' : 'In Zelle einfügen'}</button>
       </div>
     </div>
   `;
@@ -1750,7 +1750,7 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
       </div>
       <div class="obsidian-modal-footer">
         <button class="obsidian-btn obsidian-btn-sec" id="math-cancel">Abbrechen</button>
-        <button class="obsidian-btn obsidian-btn-pri" id="math-save" style="background: #d97706; border-color: #b45309;">${isEditing ? '💾 Formel aktualisieren' : 'In Zelle einfügen'}</button>
+        <button class="obsidian-btn obsidian-btn-pri" id="math-save" style="background: #d97706; border-color: #b45309;">${isEditing ? 'Formel aktualisieren' : 'In Zelle einfügen'}</button>
       </div>
     </div>
   `;
@@ -1855,7 +1855,7 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
         insertAroundSelection(cell, '', '', formatted);
       }
     }
-    showObsidianToast('✨ Formel aktualisiert!');
+    showNemeToast('Formel aktualisiert!');
     close();
   });
 
@@ -1892,7 +1892,10 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
 
       const editBtn = document.createElement('button');
       editBtn.className = 'obsidian-table-edit-btn';
-      editBtn.innerHTML = '✏️ Tabelle bearbeiten';
+      editBtn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>
+        <span>Tabelle bearbeiten</span>
+      `;
       editBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const tablesInSrc = extractAllMarkdownTables(src);
@@ -1997,7 +2000,7 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       }
     });
 
-    // 3. Obsidian Callouts stylen
+    // 3. NEME Callouts stylen
     renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
       const p = bq.querySelector('p');
       if (!p) return;
