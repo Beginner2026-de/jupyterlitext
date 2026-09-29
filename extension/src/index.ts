@@ -69,6 +69,18 @@ const extension: JupyterFrontEndPlugin<void> = {
       } catch (_e) {
         // Fallback
       }
+
+      // Variablen-Inspektor: Toolbar-Button verankern und Auto-Refresh bei Kernel-Ausführung registrieren
+      setTimeout(() => attachVariableInspectorButton(notebookPanel), 400);
+      if ((notebookPanel as any).sessionContext) {
+        try {
+          (notebookPanel as any).sessionContext.statusChanged.connect((_: any, status: string) => {
+            if (status === 'idle') {
+              updateVariableInspectorIfOpen(notebookPanel);
+            }
+          });
+        } catch (_err) {}
+      }
     };
 
     if (tracker) {
@@ -769,6 +781,229 @@ function injectStyles(): void {
       border-radius: 4px;
       background: rgba(255, 255, 255, 0.1);
       margin-right: 6px;
+    }
+
+    /* NEME Variable Inspector Panel */
+    .obsidian-variable-panel {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 480px;
+      max-width: 90vw;
+      max-height: 520px;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 12px;
+      box-shadow: 0 20px 35px rgba(0, 0, 0, 0.65);
+      z-index: 99998;
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      color: #f4f4f5;
+    }
+    .obsidian-var-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #09090b;
+      border-bottom: 1px solid #27272a;
+    }
+    .obsidian-var-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #f4f4f5;
+    }
+    .obsidian-var-badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+    .obsidian-var-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .obsidian-var-icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 4px;
+      color: #a1a1aa;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .obsidian-var-icon-btn:hover {
+      background: #27272a;
+      color: #f4f4f5;
+      border-color: #3f3f46;
+    }
+    .obsidian-var-search-bar {
+      padding: 8px 12px;
+      background: #18181b;
+      border-bottom: 1px solid #27272a;
+    }
+    .obsidian-var-search-bar input {
+      width: 100%;
+      box-sizing: border-box;
+      background: #09090b;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: #f4f4f5;
+      outline: none;
+    }
+    .obsidian-var-search-bar input:focus {
+      border-color: #38bdf8;
+    }
+    .obsidian-var-body {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 340px;
+      background: #121215;
+    }
+    .obsidian-var-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+    .obsidian-var-table th {
+      position: sticky;
+      top: 0;
+      background: #18181b;
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      border-bottom: 1px solid #27272a;
+      z-index: 2;
+    }
+    .obsidian-var-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #1f1f23;
+      vertical-align: middle;
+    }
+    .obsidian-var-row:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .obsidian-var-name code {
+      color: #38bdf8;
+      font-family: monospace;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    .obsidian-type-pill {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: monospace;
+    }
+    .obsidian-type-df {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+    .obsidian-type-array {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+    }
+    .obsidian-type-num {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #818cf8;
+    }
+    .obsidian-type-str {
+      background: rgba(236, 72, 153, 0.15);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      color: #f472b6;
+    }
+    .obsidian-type-collection {
+      background: rgba(168, 85, 247, 0.15);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      color: #c084fc;
+    }
+    .obsidian-type-generic {
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      color: #d4d4d8;
+    }
+    .obsidian-var-shape {
+      color: #a1a1aa;
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .obsidian-var-val {
+      color: #d4d4d8;
+      font-family: monospace;
+      font-size: 11px;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .obsidian-var-empty {
+      padding: 30px 20px;
+      text-align: center;
+      color: #71717a;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .obsidian-var-loading {
+      padding: 24px;
+      text-align: center;
+      color: #a1a1aa;
+      font-size: 12px;
+    }
+    .obsidian-var-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #09090b;
+      border-top: 1px solid #27272a;
+      font-size: 11px;
+      color: #71717a;
+    }
+    .obsidian-var-auto-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: #a1a1aa;
+    }
+    .obsidian-toolbar-var-btn {
+      background: rgba(56, 189, 248, 0.12) !important;
+      border: 1px solid rgba(56, 189, 248, 0.3) !important;
+      color: #38bdf8 !important;
+      border-radius: 6px !important;
+      padding: 2px 8px !important;
+      margin-left: 6px !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+      transition: all 0.15s ease !important;
+    }
+    .obsidian-toolbar-var-btn:hover {
+      background: rgba(56, 189, 248, 0.22) !important;
+      border-color: #38bdf8 !important;
     }
 
     /* Toast */
@@ -2104,6 +2339,275 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       }
     });
   });
+}
+
+/**
+ * =========================================================================
+ * NEME Kernel Variable Inspector
+ * Fragt den aktuellen Python-Kernel (IPython/Pyodide) im Hintergrund
+ * lautlos ('silent: true', 'store_history: false') ab und stellt
+ * die Variablen in einer strukturierten Tabelle dar.
+ * =========================================================================
+ */
+let activeVarInspector: HTMLElement | null = null;
+let autoRefreshVars = true;
+let lastFetchedVariables: Array<{ name: string; type: string; shape: string; value: string }> = [];
+
+function attachVariableInspectorButton(notebookPanel: NotebookPanel): void {
+  if ((notebookPanel as any)._varInspectorBtnAttached) return;
+  (notebookPanel as any)._varInspectorBtnAttached = true;
+
+  const toolbar = notebookPanel.toolbar?.node;
+  const btn = document.createElement('button');
+  btn.className = 'jp-ToolbarButtonComponent obsidian-toolbar-var-btn';
+  btn.title = 'NEME Variablen-Inspektor (Kernel)';
+  btn.innerHTML = `
+    <span class="jp-ToolbarButtonComponent-icon">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+        <line x1="12" y1="22.08" x2="12" y2="12"/>
+      </svg>
+    </span>
+    <span class="jp-ToolbarButtonComponent-label" style="font-size: 11px; font-weight: 600; margin-left: 3px;">Variablen</span>
+  `;
+
+  btn.onclick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleVariableInspector(notebookPanel);
+  };
+
+  if (toolbar) {
+    toolbar.appendChild(btn);
+  }
+}
+
+function toggleVariableInspector(notebookPanel: NotebookPanel): void {
+  const existing = document.getElementById('obsidian-variable-inspector-panel');
+  if (existing) {
+    existing.remove();
+    activeVarInspector = null;
+    return;
+  }
+
+  const panel = document.createElement('div');
+  panel.id = 'obsidian-variable-inspector-panel';
+  panel.className = 'obsidian-variable-panel';
+  panel.innerHTML = `
+    <div class="obsidian-var-header">
+      <div class="obsidian-var-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        <span>Kernel Variablen-Explorer</span>
+        <span id="obsidian-var-count" class="obsidian-var-badge">0</span>
+      </div>
+      <div class="obsidian-var-actions">
+        <button id="obsidian-var-refresh-btn" class="obsidian-var-icon-btn" title="Aktualisieren">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        </button>
+        <button id="obsidian-var-close-btn" class="obsidian-var-icon-btn" title="Schließen">&times;</button>
+      </div>
+    </div>
+    <div class="obsidian-var-search-bar">
+      <input type="text" id="obsidian-var-filter" placeholder="Variable filtern..." />
+    </div>
+    <div class="obsidian-var-body" id="obsidian-var-body">
+      <div class="obsidian-var-loading">Lese Kernel-Variablen...</div>
+    </div>
+    <div class="obsidian-var-footer">
+      <label class="obsidian-var-auto-label">
+        <input type="checkbox" id="obsidian-var-autorefresh" ${autoRefreshVars ? 'checked' : ''} />
+        Auto-Refresh
+      </label>
+      <span class="obsidian-var-status" id="obsidian-var-status">Bereit</span>
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+  activeVarInspector = panel;
+
+  panel.querySelector('#obsidian-var-close-btn')!.addEventListener('click', () => {
+    panel.remove();
+    activeVarInspector = null;
+  });
+
+  const refreshBtn = panel.querySelector('#obsidian-var-refresh-btn')!;
+  refreshBtn.addEventListener('click', () => {
+    refreshKernelVariables(notebookPanel, true);
+  });
+
+  const filterInput = panel.querySelector('#obsidian-var-filter') as HTMLInputElement;
+  filterInput.addEventListener('input', () => {
+    applyVariableFilter(filterInput.value);
+  });
+
+  const autoCheckbox = panel.querySelector('#obsidian-var-autorefresh') as HTMLInputElement;
+  autoCheckbox.addEventListener('change', () => {
+    autoRefreshVars = autoCheckbox.checked;
+  });
+
+  refreshKernelVariables(notebookPanel, true);
+}
+
+function updateVariableInspectorIfOpen(notebookPanel: NotebookPanel): void {
+  if (activeVarInspector && autoRefreshVars) {
+    refreshKernelVariables(notebookPanel, false);
+  }
+}
+
+function refreshKernelVariables(notebookPanel: NotebookPanel, showSpinner = false): void {
+  const panel = document.getElementById('obsidian-variable-inspector-panel');
+  if (!panel) return;
+
+  const statusEl = panel.querySelector('#obsidian-var-status');
+  const bodyEl = panel.querySelector('#obsidian-var-body');
+  if (statusEl) statusEl.textContent = 'Kernel wird abgefragt...';
+  if (showSpinner && bodyEl && lastFetchedVariables.length === 0) {
+    bodyEl.innerHTML = '<div class="obsidian-var-loading">Lese Kernel-Variablen...</div>';
+  }
+
+  const kernel = (notebookPanel.sessionContext as any)?.session?.kernel;
+  if (!kernel) {
+    if (statusEl) statusEl.textContent = 'Kein Kernel aktiv';
+    if (bodyEl) {
+      bodyEl.innerHTML = '<div class="obsidian-var-empty">Kein aktiver Kernel verbunden.<br/><small>Bitte starten Sie eine Kernel-Sitzung.</small></div>';
+    }
+    return;
+  }
+
+  const inspectCode = `
+try:
+    import json
+    def _neme_get_vars():
+        _res = []
+        _skip = {'In', 'Out', 'get_ipython', 'exit', 'quit', 'open', '_', '__', '___', '_i', '_ii', '_iii', '_oh', '_dh', '_ih', '_neme_get_vars'}
+        for _k, _v in list(globals().items()):
+            if _k.startswith('_') or _k in _skip:
+                continue
+            _t = type(_v).__name__
+            if _t in ('module', 'function', 'builtin_function_or_method', 'type'):
+                continue
+            _s = ''
+            if hasattr(_v, 'shape'):
+                try: _s = str(_v.shape)
+                except: _s = ''
+            elif hasattr(_v, '__len__'):
+                try: _s = f"{len(_v)} Items" if not isinstance(_v, (str, bytes)) else f"{len(_v)} Zeichen"
+                except: _s = ''
+            try:
+                if hasattr(_v, 'columns'):
+                    _val = f"Columns: {list(_v.columns)[:4]}"
+                elif isinstance(_v, (list, tuple, set)):
+                    _val = str(_v)[:50] + ('...' if len(str(_v)) > 50 else '')
+                elif isinstance(_v, dict):
+                    _val = f"Keys: {list(_v.keys())[:3]}" + ('...' if len(_v) > 3 else '')
+                else:
+                    _val = str(_v)[:60] + ('...' if len(str(_v)) > 60 else '')
+            except:
+                _val = '<Preview unavailable>'
+            _res.append({'name': str(_k), 'type': str(_t), 'shape': str(_s), 'value': str(_val)})
+        return _res
+    print('__NEME_VARS_JSON__' + json.dumps(_neme_get_vars()) + '__NEME_VARS_END__')
+except Exception as _e:
+    print('__NEME_VARS_JSON__[]__NEME_VARS_END__')
+`;
+
+  try {
+    const future = kernel.requestExecute({
+      code: inspectCode,
+      silent: true,
+      store_history: false
+    });
+
+    future.onIOPub = (msg: any) => {
+      if (msg.header.msg_type === 'stream') {
+        const text = msg.content?.text || '';
+        if (text.includes('__NEME_VARS_JSON__')) {
+          const match = text.match(/__NEME_VARS_JSON__(.*?)__NEME_VARS_END__/s);
+          if (match && match[1]) {
+            try {
+              const vars = JSON.parse(match[1]);
+              lastFetchedVariables = vars;
+              renderVariableTable(vars);
+              if (statusEl) statusEl.textContent = 'Aktualisiert ' + new Date().toLocaleTimeString();
+            } catch (_err) {
+              if (statusEl) statusEl.textContent = 'Fehler beim Parsen';
+            }
+          }
+        }
+      }
+    };
+  } catch (_err) {
+    if (statusEl) statusEl.textContent = 'Fehler bei Kernel-Abfrage';
+  }
+}
+
+function renderVariableTable(vars: Array<{ name: string; type: string; shape: string; value: string }>): void {
+  const panel = document.getElementById('obsidian-variable-inspector-panel');
+  if (!panel) return;
+
+  const countEl = panel.querySelector('#obsidian-var-count');
+  if (countEl) countEl.textContent = String(vars.length);
+
+  const bodyEl = panel.querySelector('#obsidian-var-body');
+  if (!bodyEl) return;
+
+  if (vars.length === 0) {
+    bodyEl.innerHTML = '<div class="obsidian-var-empty">Keine benutzerdefinierten Variablen im Kernel gefunden.<br/><small>Führen Sie eine Zelle mit Zuweisungen wie z.B. <code>x = 42</code> oder <code>df = ...</code> aus.</small></div>';
+    return;
+  }
+
+  let html = `
+    <table class="obsidian-var-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Typ</th>
+          <th>Shape / Größe</th>
+          <th>Wert / Vorschau</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  for (const v of vars) {
+    let typeClass = 'obsidian-type-generic';
+    if (v.type === 'DataFrame' || v.type === 'Series') typeClass = 'obsidian-type-df';
+    else if (v.type === 'ndarray') typeClass = 'obsidian-type-array';
+    else if (v.type === 'int' || v.type === 'float') typeClass = 'obsidian-type-num';
+    else if (v.type === 'str') typeClass = 'obsidian-type-str';
+    else if (v.type === 'list' || v.type === 'dict' || v.type === 'tuple') typeClass = 'obsidian-type-collection';
+
+    html += `
+      <tr class="obsidian-var-row" data-name="${v.name.toLowerCase()}">
+        <td class="obsidian-var-name"><code>${escapeVarHtml(v.name)}</code></td>
+        <td><span class="obsidian-type-pill ${typeClass}">${escapeVarHtml(v.type)}</span></td>
+        <td class="obsidian-var-shape">${escapeVarHtml(v.shape || '–')}</td>
+        <td class="obsidian-var-val" title="${escapeVarHtml(v.value)}">${escapeVarHtml(v.value)}</td>
+      </tr>
+    `;
+  }
+
+  html += '</tbody></table>';
+  bodyEl.innerHTML = html;
+}
+
+function applyVariableFilter(query: string): void {
+  const q = query.toLowerCase().trim();
+  const rows = document.querySelectorAll('.obsidian-var-row');
+  rows.forEach(r => {
+    const name = r.getAttribute('data-name') || '';
+    if (!q || name.includes(q)) {
+      (r as HTMLElement).style.display = '';
+    } else {
+      (r as HTMLElement).style.display = 'none';
+    }
+  });
+}
+
+function escapeVarHtml(str: string): string {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 const plugins: JupyterFrontEndPlugin<any>[] = [extension];
