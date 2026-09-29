@@ -2003,16 +2003,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
             <button class="obsidian-chip" data-tex="\\mathbf{v} = \\begin{pmatrix} v_1 \\\\ v_2 \\\\ v_3 \\end{pmatrix}">[Spaltenvektor]</button>
           </div>
 
-          <div class="obsidian-chips-title">Data Science & Machine Learning</div>
-          <div class="obsidian-chips-row">
-            <button class="obsidian-chip" data-tex="\\hat{y} = \\mathbf{X}\\boldsymbol{\\beta} + \\boldsymbol{\\epsilon}">Lineare Regression</button>
-            <button class="obsidian-chip" data-tex="\\text{MSE} = \\frac{1}{n} \\sum_{i=1}^{n} (y_i - \\hat{y}_i)^2">MSE</button>
-            <button class="obsidian-chip" data-tex="\\sigma(z) = \\frac{1}{1 + e^{-z}}">Sigmoid</button>
-            <button class="obsidian-chip" data-tex="\\sigma(\\mathbf{z})_i = \\frac{e^{z_i}}{\\sum_{j=1}^{K} e^{z_j}}">Softmax</button>
-            <button class="obsidian-chip" data-tex="P(A \\mid B) = \\frac{P(B \\mid A) \\, P(A)}{P(B)}">Bayes</button>
-            <button class="obsidian-chip" data-tex="\\bar{x} = \\frac{1}{n} \\sum_{i=1}^{n} x_i">Mittelwert</button>
-          </div>
-
           <div class="obsidian-chips-title">Operatoren & Bausteine</div>
           <div class="obsidian-chips-row">
             <button class="obsidian-chip" data-tex="\\frac{a}{b}">Bruch (\\frac)</button>
