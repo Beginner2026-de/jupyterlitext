@@ -1597,7 +1597,9 @@ function clearFormattingInCell(cell: MarkdownCell): void {
             if (typeof editor.getPositionAt === 'function') {
               const newStartPos = editor.getPositionAt(startOffset);
               const newEndPos = editor.getPositionAt(startOffset + cleaned.length);
-              editor.setSelection({ start: newStartPos, end: newEndPos });
+              if (newStartPos && newEndPos) {
+                editor.setSelection({ start: newStartPos, end: newEndPos });
+              }
             } else {
               editor.setCursorPosition(selection.start);
             }
@@ -1673,11 +1675,12 @@ function insertAroundSelection(cell: MarkdownCell, before: string, after: string
   }
 
   let selectedText = '';
+  let startOffset = -1;
   try {
     const selection = editor.getSelection();
     if (selection && typeof editor.getOffsetAt === 'function') {
       const src = cell.model.sharedModel.getSource();
-      const startOffset = editor.getOffsetAt(selection.start);
+      startOffset = editor.getOffsetAt(selection.start);
       const endOffset = editor.getOffsetAt(selection.end);
       selectedText = src.substring(startOffset, endOffset);
     }
@@ -1693,6 +1696,24 @@ function insertAroundSelection(cell: MarkdownCell, before: string, after: string
     const current = cell.model.sharedModel.getSource();
     cell.model.sharedModel.setSource(current + '\n' + textToInsert);
   }
+
+  // Erweitere die Markierung auf die Formatierungszeichen (Präfix & Suffix)
+  if (before || after) {
+    setTimeout(() => {
+      try {
+        editor.focus();
+        if (typeof editor.getPositionAt === 'function' && startOffset >= 0) {
+          const newStartPos = editor.getPositionAt(startOffset);
+          const newEndPos = editor.getPositionAt(startOffset + textToInsert.length);
+          if (newStartPos && newEndPos) {
+            editor.setSelection({ start: newStartPos, end: newEndPos });
+          }
+        }
+      } catch (_e) {
+        // fallback
+      }
+    }, 15);
+  }
 }
 
 function insertLinePrefix(cell: MarkdownCell, prefix: string): void {
@@ -1705,10 +1726,33 @@ function insertLinePrefix(cell: MarkdownCell, prefix: string): void {
   const selection = editor.getSelection();
   const src = cell.model.sharedModel.getSource();
   const startOffset = typeof editor.getOffsetAt === 'function' ? editor.getOffsetAt(selection.start) : 0;
+  const endOffset = typeof editor.getOffsetAt === 'function' ? editor.getOffsetAt(selection.end) : 0;
   const lineStart = src.lastIndexOf('\n', startOffset - 1) + 1;
 
   const newContent = src.substring(0, lineStart) + prefix + src.substring(lineStart);
   cell.model.sharedModel.setSource(newContent);
+
+  setTimeout(() => {
+    try {
+      editor.focus();
+      if (typeof editor.getPositionAt === 'function') {
+        if (startOffset !== endOffset) {
+          const sPos = editor.getPositionAt(lineStart);
+          const ePos = editor.getPositionAt(endOffset + prefix.length);
+          if (sPos && ePos) {
+            editor.setSelection({ start: sPos, end: ePos });
+          }
+        } else {
+          const targetPos = editor.getPositionAt(startOffset + prefix.length);
+          if (targetPos) {
+            editor.setCursorPosition(targetPos);
+          }
+        }
+      }
+    } catch (_e) {
+      // fallback
+    }
+  }, 15);
 }
 
 /**
