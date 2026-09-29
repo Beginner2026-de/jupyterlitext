@@ -448,8 +448,7 @@ function injectStyles(): void {
       margin: 12px 0;
       border-radius: 8px;
       border: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.25));
-      background: var(--jp-cell-editor-background, var(--jp-layout-color1, #18181b));
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      background: transparent;
     }
     .obsidian-preview-table {
       width: 100%;
@@ -457,18 +456,20 @@ function injectStyles(): void {
       font-size: 12.5px;
       line-height: 1.5;
       color: var(--jp-content-font-color1, inherit);
+      background: transparent;
       font-family: var(--jp-ui-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
     }
     .obsidian-preview-table thead tr {
-      background: var(--jp-layout-color2, #27272a);
+      background: transparent;
       border-bottom: 2px solid var(--jp-border-color2, rgba(128, 128, 128, 0.3));
     }
     .obsidian-preview-table th {
       padding: 9px 14px;
       font-weight: 600;
-      color: var(--jp-content-font-color0, #fafafa);
+      color: var(--jp-content-font-color0, inherit);
       border-right: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       white-space: nowrap;
+      background: transparent;
     }
     .obsidian-preview-table th:last-child {
       border-right: none;
@@ -478,15 +479,19 @@ function injectStyles(): void {
       border-top: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       border-right: 1px solid var(--jp-border-color2, rgba(128, 128, 128, 0.15));
       color: var(--jp-content-font-color1, inherit);
+      background: transparent;
     }
     .obsidian-preview-table td:last-child {
       border-right: none;
     }
+    .obsidian-preview-table tbody tr {
+      background: transparent;
+    }
     .obsidian-preview-table tbody tr:nth-child(even) {
-      background: rgba(128, 128, 128, 0.04);
+      background: transparent;
     }
     .obsidian-preview-table tbody tr:hover {
-      background: rgba(128, 128, 128, 0.08);
+      background: rgba(128, 128, 128, 0.05);
     }
 
     /* Tabellen-Editor Grid */
@@ -498,7 +503,7 @@ function injectStyles(): void {
     .obsidian-table-grid th, .obsidian-table-grid td {
       border: 1px solid #3f3f46;
       padding: 4px;
-      background: #27272a;
+      background: transparent;
     }
     .obsidian-table-grid input {
       width: 100%;
@@ -952,20 +957,20 @@ function renderNemeMarkdown(src: string): string {
         });
         const colCount = headers.length;
 
-        let tableHtml = '<div class="obsidian-table-wrapper"><table class="obsidian-preview-table"><thead><tr>';
+        let tableHtml = '<div class="obsidian-table-wrapper" style="background: transparent;"><table class="obsidian-preview-table" style="background: transparent;"><thead><tr style="background: transparent;">';
         headers.forEach((h, hIdx) => {
           const align = alignments[hIdx] || 'left';
-          tableHtml += `<th style="text-align: ${align};">${formatNemeTableCell(h)}</th>`;
+          tableHtml += `<th style="text-align: ${align}; background: transparent;">${formatNemeTableCell(h)}</th>`;
         });
         tableHtml += '</tr></thead><tbody>';
 
         for (let r = 2; r < tableLines.length; r++) {
           const rowCells = splitNemeTableRow(tableLines[r]);
-          tableHtml += '<tr>';
+          tableHtml += '<tr style="background: transparent;">';
           for (let c = 0; c < colCount; c++) {
             const cellVal = rowCells[c] !== undefined ? rowCells[c] : '';
             const align = alignments[c] || 'left';
-            tableHtml += `<td style="text-align: ${align};">${formatNemeTableCell(cellVal)}</td>`;
+            tableHtml += `<td style="text-align: ${align}; background: transparent;">${formatNemeTableCell(cellVal)}</td>`;
           }
           tableHtml += '</tr>';
         }
