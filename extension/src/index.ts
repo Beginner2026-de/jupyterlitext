@@ -172,6 +172,12 @@ function injectStyles(): void {
       color: #ffffff;
       border-color: #3f3f46;
     }
+    .obsidian-tb-btn:disabled,
+    .obsidian-tb-btn[disabled] {
+      opacity: 0.35 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
+    }
     .obsidian-tb-btn svg {
       stroke: currentColor;
     }
@@ -1287,11 +1293,26 @@ function updateActivePreview(cell: MarkdownCell): void {
   }
 }
 
+function updateToolbarDisabledState(toolbar: HTMLElement, isRendered: boolean): void {
+  toolbar.querySelectorAll<HTMLButtonElement>('[data-action], .obsidian-dropdown-toggle').forEach(btn => {
+    btn.disabled = isRendered;
+    if (isRendered) {
+      if (!btn.hasAttribute('data-original-title')) {
+        btn.setAttribute('data-original-title', btn.getAttribute('title') || '');
+      }
+      btn.setAttribute('title', 'Formatierung im Lesemodus deaktiviert');
+    } else {
+      const orig = btn.getAttribute('data-original-title');
+      if (orig) btn.setAttribute('title', orig);
+    }
+  });
+}
+
 function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source' | 'rendered'): void {
   (cell as any)._obsidianMode = mode;
 
   // Toolbar Button-Zustände synchronisieren
-  const toolbar = cell.node.querySelector('.obsidian-floating-toolbar');
+  const toolbar = cell.node.querySelector('.obsidian-floating-toolbar') as HTMLElement | null;
   if (toolbar) {
     toolbar.querySelectorAll('.obsidian-tb-mode-btn').forEach(btn => {
       if (btn.getAttribute('data-mode') === mode) {
@@ -1300,6 +1321,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         btn.classList.remove('active');
       }
     });
+    updateToolbarDisabledState(toolbar, mode === 'rendered');
   }
 
   const editorNode = cell.node.querySelector('.jp-Cell-inputArea') as HTMLElement | null;
@@ -1517,6 +1539,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   toolbar.querySelectorAll('.obsidian-dropdown-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if ((cell as any)._obsidianMode === 'rendered' || cell.rendered) return;
       const parent = btn.closest('.obsidian-dropdown-container');
       const menu = parent?.querySelector('.obsidian-dropdown-menu');
       document.querySelectorAll('.obsidian-dropdown-menu').forEach(m => {
@@ -1550,6 +1573,9 @@ function attachNemeToolbar(cell: MarkdownCell): void {
       handleToolbarAction(cell, action);
     });
   });
+
+  // Toolbar Buttons deaktivieren wenn Zelle im Lesemodus ist
+  updateToolbarDisabledState(toolbar, curMode === 'rendered');
 
   // Fest DARUNTER an den inputWrapper anheften
   inputWrapper.appendChild(toolbar);
@@ -1642,6 +1668,7 @@ function clearFormattingInCell(cell: MarkdownCell): void {
 
 function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
   if (!action) return;
+  if (cell.rendered || (cell as any)._obsidianMode === 'rendered') return;
 
   switch (action) {
     case 'h1': insertLinePrefix(cell, '# '); break;
