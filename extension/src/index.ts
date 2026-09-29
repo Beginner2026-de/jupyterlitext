@@ -1183,6 +1183,16 @@ function formatNemeTableCell(cellText: string): string {
   return res;
 }
 
+function escapeNemeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /**
  * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
  */
@@ -1196,11 +1206,44 @@ function renderNemeMarkdown(src: string): string {
   const lines = normalizedSrc.split('\n');
   const tablePlaceholders: { [key: string]: string } = {};
   let tableCounter = 0;
+  const codePlaceholders: { [key: string]: string } = {};
+  let codeCounter = 0;
   const processedLines: string[] = [];
 
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // 0. Code-Bloecke (Fenced Blocks mit Triple-Backticks oder Tildes) vorab extrahieren
+    if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) {
+      const fence = trimmedLine.slice(0, 3);
+      const lang = trimmedLine.slice(3).trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith(fence)) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) {
+        i++; // schliessenden Fence ueberspringen
+      }
+
+      const escapedCode = codeLines.map(cl => escapeNemeHtml(cl)).join('\n');
+      const placeholder = '<!--NEME_CODE_BLOCK_' + (codeCounter++) + '-->';
+      const displayLang = escapeNemeHtml(lang || 'code');
+      const codeHtml = '<div class="obsidian-code-block" style="margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid rgba(128, 128, 128, 0.25); background: #09090b; font-family: monospace;">' +
+        '<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(128, 128, 128, 0.15); font-size: 11px; color: var(--jp-content-font-color2, #a1a1aa); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">' +
+        '<span>' + displayLang + '</span>' +
+        '</div>' +
+        '<pre style="margin: 0; padding: 10px 12px; font-family: monospace; font-size: 12px; line-height: 1.5; color: #f4f4f5; overflow-x: auto; white-space: pre;"><code>' + escapedCode + '</code></pre>' +
+        '</div>';
+
+      codePlaceholders[placeholder] = codeHtml;
+      processedLines.push(placeholder);
+      continue;
+    }
+
     const isTable = i + 1 < lines.length && isNemeTableDelimiter(lines[i + 1]) && (line.includes('|') || line.trim().startsWith('|'));
 
     if (isTable) {
@@ -1281,7 +1324,10 @@ function renderNemeMarkdown(src: string): string {
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/~~(.*?)~~/g, '<del style="color: var(--jp-content-font-color2, #a1a1aa);">$1</del>');
-  html = html.replace(/`([^`]+)`/g, '<code style="background: rgba(128, 128, 128, 0.14); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.18);">$1</code>');
+  const inlineCodeRegex = new RegExp('\x60([^\x60\n]+)\x60', 'g');
+  html = html.replace(inlineCodeRegex, (_, code) => {
+    return '<code style="background: rgba(128, 128, 128, 0.18); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.2);">' + escapeNemeHtml(code) + '</code>';
+  });
 
   // 6. Checklisten & Listen
   html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
@@ -1294,6 +1340,11 @@ function renderNemeMarkdown(src: string): string {
   // Tabellen-Platzhalter wiederherstellen
   for (const placeholder in tablePlaceholders) {
     html = html.replace(placeholder, tablePlaceholders[placeholder]);
+  }
+
+  // Code-Block-Platzhalter wiederherstellen
+  for (const placeholder in codePlaceholders) {
+    html = html.replace(placeholder, codePlaceholders[placeholder]);
   }
 
   return html;
