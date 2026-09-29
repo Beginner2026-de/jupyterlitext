@@ -46,6 +46,29 @@ const extension: JupyterFrontEndPlugin<void> = {
         setTimeout(() => transformRenderedMarkdown(notebookPanel), 100);
       });
 
+      // Modus-Synchronisation auf Notebook-Ebene (Command Mode vs. Edit Mode)
+      if ((notebookPanel.content as any).stateChanged) {
+        try {
+          (notebookPanel.content as any).stateChanged.connect((_: any, args: any) => {
+            if (args && args.name === 'mode') {
+              const activeCell = notebookPanel.content.activeCell as MarkdownCell | null;
+              if (activeCell && (activeCell.model?.type === 'markdown' || (activeCell as any).cellType === 'markdown' || activeCell.node.classList.contains('jp-MarkdownCell'))) {
+                if (args.newValue === 'edit') {
+                  if ((activeCell as any)._obsidianMode === 'rendered') {
+                    const nextMode = (activeCell as any)._lastEditMode || 'live';
+                    setCellEditorMode(activeCell, nextMode);
+                  }
+                } else if (args.newValue === 'command' && activeCell.rendered) {
+                  if ((activeCell as any)._obsidianMode !== 'rendered') {
+                    setCellEditorMode(activeCell, 'rendered');
+                  }
+                }
+              }
+            }
+          });
+        } catch (_err) {}
+      }
+
       // Beim Rendern oder Ändern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
       notebookPanel.content.model?.cells.changed.connect(() => {
         setTimeout(() => transformRenderedMarkdown(notebookPanel), 250);
@@ -1315,7 +1338,9 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
   }
 
   // Toolbar Button-Zustände synchronisieren
-  const toolbar = cell.node.querySelector('.obsidian-floating-toolbar') as HTMLElement | null;
+  const toolbar = (cell.node.querySelector('.obsidian-floating-toolbar') ||
+                   cell.node.closest('.jp-Notebook')?.querySelector('.obsidian-floating-toolbar') ||
+                   document.querySelector('.obsidian-floating-toolbar')) as HTMLElement | null;
   if (toolbar) {
     toolbar.querySelectorAll('.obsidian-tb-mode-btn').forEach(btn => {
       if (btn.getAttribute('data-mode') === mode) {
@@ -1588,42 +1613,32 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   // Toolbar Buttons deaktivieren wenn Zelle im Lesemodus ist
   updateToolbarDisabledState(toolbar, curMode === 'rendered');
 
-  // 1. Synchronisation bei Doppelklick:
-  // In JupyterLab führt ein Doppelklick auf eine gerenderte Zelle zum Editieren (cell.rendered = false).
-  // Hierbei schaltet die Toolbar automatisch vom Modus 'Lesen' in den Bearbeitungsmodus ('live').
+  // 1. Synchronisation bei Doppelklick (Capturing Phase, bevor JupyterLab event.stopPropagation ausführt!)
   if (!(cell as any)._obsidianDblClickAttached) {
     (cell as any)._obsidianDblClickAttached = true;
     cell.node.addEventListener('dblclick', () => {
       setTimeout(() => {
-        if (!cell.rendered || !cell.node.classList.contains('jp-mod-rendered')) {
-          if ((cell as any)._obsidianMode === 'rendered') {
-            const nextMode = (cell as any)._lastEditMode || 'live';
-            setCellEditorMode(cell, nextMode);
-          }
+        if ((cell as any)._obsidianMode === 'rendered') {
+          const nextMode = (cell as any)._lastEditMode || 'live';
+          setCellEditorMode(cell, nextMode);
         }
       }, 40);
-    });
+    }, true);
   }
 
-  // 2. Synchronisation über JupyterLab renderedChanged Signal (falls vorhanden)
-  if (!(cell as any)._obsidianRenderedSignalAttached && (cell as any).renderedChanged) {
-    (cell as any)._obsidianRenderedSignalAttached = true;
-    try {
-      (cell as any).renderedChanged.connect((_: any, isRendered: boolean) => {
-        if (!isRendered) {
-          if ((cell as any)._obsidianMode === 'rendered') {
-            const nextMode = (cell as any)._lastEditMode || 'live';
-            setCellEditorMode(cell, nextMode);
-          }
-        } else {
-          if ((cell as any)._obsidianMode !== 'rendered') {
-            setCellEditorMode(cell, 'rendered');
-          }
+  // 2. Synchronisation bei Fokus im Editorbereich (CodeMirror / inputArea)
+  if (!(cell as any)._obsidianFocusInAttached) {
+    (cell as any)._obsidianFocusInAttached = true;
+    cell.node.addEventListener('focusin', () => {
+      setTimeout(() => {
+        const isInputFocused = cell.node.querySelector('.jp-Cell-inputArea')?.contains(document.activeElement) ||
+                              cell.node.querySelector('.cm-content')?.contains(document.activeElement);
+        if (isInputFocused && (cell as any)._obsidianMode === 'rendered') {
+          const nextMode = (cell as any)._lastEditMode || 'live';
+          setCellEditorMode(cell, nextMode);
         }
-      });
-    } catch (_e) {
-      // fallback
-    }
+      }, 30);
+    });
   }
 
   // 3. Tastatur-Enter Erkennung (JupyterLab Command Mode -> Edit Mode bei Tastendruck Enter)
@@ -1632,7 +1647,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
     cell.node.addEventListener('keydown', (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
         setTimeout(() => {
-          if (!cell.rendered && (cell as any)._obsidianMode === 'rendered') {
+          if ((cell as any)._obsidianMode === 'rendered') {
             const nextMode = (cell as any)._lastEditMode || 'live';
             setCellEditorMode(cell, nextMode);
           }
@@ -1641,23 +1656,16 @@ function attachNemeToolbar(cell: MarkdownCell): void {
     });
   }
 
-  // 4. Observer auf jp-mod-rendered Klassenänderungen (lückenlose Erkennung bei Zellwechsel & Menüs)
-  if (!(cell as any)._obsidianClassObserverAttached) {
-    (cell as any)._obsidianClassObserverAttached = true;
-    try {
-      const classObserver = new MutationObserver(() => {
-        const isRenderedDom = cell.node.classList.contains('jp-mod-rendered') || cell.rendered;
-        if (!isRenderedDom && (cell as any)._obsidianMode === 'rendered') {
-          const nextMode = (cell as any)._lastEditMode || 'live';
-          setCellEditorMode(cell, nextMode);
-        } else if (isRenderedDom && (cell as any)._obsidianMode !== 'rendered') {
-          setCellEditorMode(cell, 'rendered');
-        }
-      });
-      classObserver.observe(cell.node, { attributes: true, attributeFilter: ['class'] });
-    } catch (_e) {
-      // fallback
-    }
+  // 4. Klick in den Editorbereich (InputArea / CodeMirror)
+  const inputArea = cell.node.querySelector('.jp-Cell-inputArea') || cell.node.querySelector('.jp-InputArea');
+  if (inputArea && !(cell as any)._obsidianInputClickAttached) {
+    (cell as any)._obsidianInputClickAttached = true;
+    inputArea.addEventListener('click', () => {
+      if ((cell as any)._obsidianMode === 'rendered') {
+        const nextMode = (cell as any)._lastEditMode || 'live';
+        setCellEditorMode(cell, nextMode);
+      }
+    });
   }
 
   // Fest DARUNTER an den inputWrapper anheften
