@@ -1739,11 +1739,11 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   let tableData = initialTableMarkdown ? parseMarkdownTable(initialTableMarkdown) : null;
   if (!tableData) {
     tableData = {
-      headers: ['Modell', 'Score (R²)', 'Status'],
-      alignments: ['left', 'right', 'center'],
+      headers: ['A', 'B', 'C'],
+      alignments: ['left', 'left', 'left'],
       rows: [
-        ['Linear Regression', '0.941', 'Optimal'],
-        ['Random Forest', '0.968', 'Best Model']
+        ['1', '2', '3'],
+        ['4', '5', '6']
       ]
     };
   }
@@ -1812,7 +1812,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
           <button data-align="center" title="Zentriert">C</button>
           <button data-align="right" title="Rechtsbündig">R</button>
         </div>
-        <input type="text" value="${h}" placeholder="Spalte ${colIdx + 1}" data-header="${colIdx}" />
+        <input type="text" value="${h}" placeholder="${String.fromCharCode(65 + (colIdx % 26))}" data-header="${colIdx}" />
       `;
       th.querySelectorAll('[data-align]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1837,7 +1837,7 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
       currentHeaders.forEach((_, colIdx) => {
         const td = document.createElement('td');
         const val = row[colIdx] !== undefined ? row[colIdx] : '';
-        td.innerHTML = `<input type="text" value="${val}" placeholder="Wert..." data-row="${rowIdx}" data-col="${colIdx}" />`;
+        td.innerHTML = `<input type="text" value="${val}" placeholder="–" data-row="${rowIdx}" data-col="${colIdx}" />`;
         td.querySelector('input')?.addEventListener('input', (e) => {
           currentRows[rowIdx][colIdx] = (e.target as HTMLInputElement).value;
           updatePreview();
@@ -1856,9 +1856,11 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   }
 
   modalOverlay.querySelector('#tb-add-col')?.addEventListener('click', () => {
-    currentHeaders.push(`Spalte ${currentHeaders.length + 1}`);
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nextCol = letters[currentHeaders.length % 26] || `C${currentHeaders.length + 1}`;
+    currentHeaders.push(nextCol);
     currentAlignments.push('left');
-    currentRows.forEach(r => r.push(''));
+    currentRows.forEach((r, idx) => r.push(String(idx + 1)));
     renderGrid();
   });
 
@@ -1871,7 +1873,8 @@ function openTableEditorModal(cell: MarkdownCell, initialTableMarkdown?: string)
   });
 
   modalOverlay.querySelector('#tb-add-row')?.addEventListener('click', () => {
-    currentRows.push(new Array(currentHeaders.length).fill(''));
+    const rIdx = currentRows.length;
+    currentRows.push(new Array(currentHeaders.length).fill('').map((_, c) => `${(rIdx * currentHeaders.length) + c + 1}`));
     renderGrid();
   });
 
@@ -2014,8 +2017,6 @@ function openMathEditorModal(cell: MarkdownCell, initialFormulaMarkdown?: string
             <button class="obsidian-chip" data-tex="x_{i}">Index (x_i)</button>
             <button class="obsidian-chip" data-tex="\\sqrt{x}">Wurzel (\\sqrt)</button>
             <button class="obsidian-chip" data-tex="\\sqrt[n]{x}">n-te Wurzel</button>
-            <button class="obsidian-chip" data-tex="\\prod_{i=1}^{n}">Produkt (\\prod)</button>
-            <button class="obsidian-chip" data-tex="\\mathbf{X}">Fett (\\mathbf)</button>
             <button class="obsidian-chip" data-tex="\\infty">∞</button>
             <button class="obsidian-chip" data-tex="\\nabla">∇</button>
             <button class="obsidian-chip" data-tex="\\in">∈</button>
