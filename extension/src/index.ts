@@ -223,7 +223,7 @@ function injectStyles(): void {
       stroke: currentColor;
     }
 
-    /* Split-View Container (2 Spalten nebeneinander: Links Editor, Rechts Vorschau auf gleicher Zeilenhöhe) */
+    /* Split-View Container (2 Spalten nebeneinander: Links Live-Vorschau, Rechts Editor auf gleicher Zeilenhöhe) */
     .obsidian-cell-split {
       display: grid !important;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
@@ -239,19 +239,9 @@ function injectStyles(): void {
     .obsidian-cell-split > .jp-Cell-prompt {
       display: none !important;
     }
-    /* Linke Spalte (Spalte 1, Zeile 1): Editor links */
-    .obsidian-cell-split > .jp-InputArea-editor,
-    .obsidian-cell-split > .jp-Editor,
-    .obsidian-cell-split > .jp-CodeMirrorEditor {
-      grid-column: 1 / 2 !important;
-      grid-row: 1 !important;
-      width: 100% !important;
-      min-width: 0 !important;
-      box-sizing: border-box !important;
-    }
-    /* Rechte Spalte (Spalte 2, Zeile 1): Split-Vorschau rechts auf gleicher Zeilenhöhe */
+    /* Linke Spalte (Spalte 1, Zeile 1): Live-Vorschau links auf gleicher Zeilenhöhe */
     .obsidian-cell-split > .obsidian-split-preview {
-      grid-column: 2 / 3 !important;
+      grid-column: 1 / 2 !important;
       grid-row: 1 !important;
       width: 100% !important;
       min-width: 0 !important;
@@ -268,6 +258,16 @@ function injectStyles(): void {
       font-size: 13px;
       line-height: 1.6;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    /* Rechte Spalte (Spalte 2, Zeile 1): Editor rechts */
+    .obsidian-cell-split > .jp-InputArea-editor,
+    .obsidian-cell-split > .jp-Editor,
+    .obsidian-cell-split > .jp-CodeMirrorEditor {
+      grid-column: 2 / 3 !important;
+      grid-row: 1 !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      box-sizing: border-box !important;
     }
 
     /* Live Preview Modus: Editor oben, Live-Vorschau direkt UNTEREINANDER darunter */
@@ -1314,7 +1314,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       editorNode.classList.remove('obsidian-cell-live');
     }
     cell.rendered = true;
-    showNemeToast('Gelesen (Leseansicht)');
+    showNemeToast('Lesen (Leseansicht)');
     return;
   }
 
@@ -1337,7 +1337,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       editorNode.classList.remove('obsidian-cell-live');
     }
     cell.editor?.focus();
-    showNemeToast('Source-Modus (Nur Quelltext)');
+    showNemeToast('Quelle aktiv');
     return;
   }
 
@@ -1353,7 +1353,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         splitPreview.className = 'obsidian-split-preview';
         splitPreview.innerHTML = `
           <div class="obsidian-preview-header">
-            <span>Split-Vorschau</span>
+            <span>Live Vorschau links</span>
             <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Live KaTeX</span>
           </div>
           <div class="obsidian-preview-body"></div>
@@ -1363,7 +1363,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       updateActivePreview(cell);
     }
     cell.editor?.focus();
-    showNemeToast('Split-Ansicht aktiv');
+    showNemeToast('Live Vorschau links aktiv');
     return;
   }
 
@@ -1379,7 +1379,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         livePreview.className = 'obsidian-live-preview';
         livePreview.innerHTML = `
           <div class="obsidian-preview-header">
-            <span>Live Preview (KaTeX & Markdown)</span>
+            <span>Live Vorschau unten (KaTeX & Markdown)</span>
             <span class="obsidian-preview-badge"><span class="obsidian-preview-dot"></span> Echtzeit</span>
           </div>
           <div class="obsidian-preview-body"></div>
@@ -1389,7 +1389,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
       updateActivePreview(cell);
     }
     cell.editor?.focus();
-    showNemeToast('Live Preview aktiv');
+    showNemeToast('Live Vorschau unten aktiv');
     return;
   }
 }
@@ -1411,6 +1411,8 @@ function attachNemeToolbar(cell: MarkdownCell): void {
 
   const toolbar = document.createElement('div');
   toolbar.className = 'obsidian-floating-toolbar';
+
+  const curMode = (cell as any)._obsidianMode || 'rendered';
 
   toolbar.innerHTML = `
     <div class="obsidian-tb-brand">NEME</div>
@@ -1490,23 +1492,23 @@ function attachNemeToolbar(cell: MarkdownCell): void {
 
     <div class="obsidian-tb-divider"></div>
 
-    <!-- Modus-Umschaltung: Live Preview, Split, Source, Gelesen -->
+    <!-- Modus-Umschaltung: Live Vorschau unten, Live Vorschau links, Quelle, Lesen -->
     <div class="obsidian-tb-mode-group">
-      <button class="obsidian-tb-mode-btn" data-mode="live" title="Live Preview: Editor mit Live-Vorschau darunter">
+      <button class="obsidian-tb-mode-btn ${curMode === 'live' ? 'active' : ''}" data-mode="live" title="Live Vorschau unten: Editor mit Live-Vorschau darunter">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        <span>Live Preview</span>
+        <span>Live Vorschau unten</span>
       </button>
-      <button class="obsidian-tb-mode-btn" data-mode="split" title="Split View: Quellcode links, Live-Vorschau rechts">
+      <button class="obsidian-tb-mode-btn ${curMode === 'split' ? 'active' : ''}" data-mode="split" title="Live Vorschau links: Live-Vorschau links, Quellcode rechts">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5z"/></svg>
-        <span>Split</span>
+        <span>Live Vorschau links</span>
       </button>
-      <button class="obsidian-tb-mode-btn active" data-mode="source" title="Source: Reiner Markdown Quellcode">
+      <button class="obsidian-tb-mode-btn ${curMode === 'source' ? 'active' : ''}" data-mode="source" title="Quelle: Reiner Markdown Quellcode">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        <span>Source</span>
+        <span>Quelle</span>
       </button>
-      <button class="obsidian-tb-mode-btn" data-mode="rendered" title="Gelesen: Fertige Leseansicht">
+      <button class="obsidian-tb-mode-btn ${curMode === 'rendered' ? 'active' : ''}" data-mode="rendered" title="Lesen: Fertige Leseansicht">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        <span>Gelesen</span>
+        <span>Lesen</span>
       </button>
     </div>
   `;
