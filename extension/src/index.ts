@@ -1211,6 +1211,9 @@ function attachNemeToolbar(cell: MarkdownCell): void {
     <button class="obsidian-tb-btn" title="Inline-Code" data-action="code">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
     </button>
+    <button class="obsidian-tb-btn" title="Formatierung löschen" data-action="clear-format">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3"/><path d="M5 20h6"/><path d="M13 4 8 20"/><path d="m15 15 5 5"/><path d="m20 15-5 5"/></svg>
+    </button>
 
     <div class="obsidian-tb-divider"></div>
 
@@ -1315,6 +1318,57 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   inputWrapper.appendChild(toolbar);
 }
 
+function stripMarkdownFormatting(text: string): string {
+  if (!text) return '';
+  let res = text;
+  res = res.replace(new RegExp('\\x60{3}[a-zA-Z0-9_-]*\\n?([\\s\\S]*?)\\x60{3}', 'g'), '$1');
+  res = res.replace(/\$\$([\s\S]*?)\$\$/g, '$1');
+  const inlineRegex = /(?<![\$\\])\$(?!\$)([^\$\n]+?)(?<![\$\\])\$(?!\$)/g;
+  res = res.replace(inlineRegex, '$1');
+  res = res.replace(/!\[(.*?)\]\(.*?\)/g, '$1');
+  res = res.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+  res = res.replace(/\[\[(?:.*?\|)?(.*?)\]\]/g, '$1');
+  res = res.replace(/(\*{2,3}|_{2,3})(.*?)\1/g, '$2');
+  res = res.replace(/\*([^\*\n]+?)\*/g, '$1');
+  res = res.replace(/\b_([^\_\n]+?)_\b/g, '$1');
+  res = res.replace(/~~(.*?)~~/g, '$1');
+  res = res.replace(/==(.*?)==/g, '$1');
+  res = res.replace(new RegExp('\\x60([^\\x60\\n]+?)\\x60', 'g'), '$1');
+  res = res.replace(/<\/?[a-zA-Z0-9]+(?:\s+[^>]*)?>/g, '');
+  res = res.replace(/^[ \t]*(?:#{1,6}|>+|- \[[ xX]\]|[-*+]|\d+\.)[ \t]+/gm, '');
+  return res;
+}
+
+function clearFormattingInCell(cell: MarkdownCell): void {
+  const editor = cell.editor;
+  if (!editor) return;
+
+  try {
+    const selection = editor.getSelection();
+    const src = cell.model.sharedModel.getSource();
+    if (selection && typeof editor.getOffsetAt === 'function') {
+      const startOffset = editor.getOffsetAt(selection.start);
+      const endOffset = editor.getOffsetAt(selection.end);
+      if (startOffset !== endOffset) {
+        const selectedText = src.substring(startOffset, endOffset);
+        const cleaned = stripMarkdownFormatting(selectedText);
+        cell.model.sharedModel.setSource(src.substring(0, startOffset) + cleaned + src.substring(endOffset));
+        showNemeToast('Formatierung gelöscht');
+        return;
+      }
+    }
+    const pos = editor.getCursorPosition();
+    const lines = src.split('\n');
+    if (lines[pos.line] !== undefined) {
+      lines[pos.line] = stripMarkdownFormatting(lines[pos.line]);
+      cell.model.sharedModel.setSource(lines.join('\n'));
+      showNemeToast('Formatierung gelöscht');
+    }
+  } catch (e) {
+    console.error('Error clearing formatting', e);
+  }
+}
+
 function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
   if (!action) return;
 
@@ -1327,6 +1381,7 @@ function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
     case 'strike': insertAroundSelection(cell, '~~', '~~', 'durchgestrichen'); break;
     case 'highlight': insertAroundSelection(cell, '==', '==', 'markierter Text'); break;
     case 'code': insertAroundSelection(cell, '`', '`', 'code'); break;
+    case 'clear-format': clearFormattingInCell(cell); break;
     case 'bullet': insertLinePrefix(cell, '- '); break;
     case 'checklist': insertLinePrefix(cell, '- [ ] '); break;
     case 'math': openMathEditorModal(cell); break;
