@@ -1,13 +1,13 @@
 {
-  "name": "jupyterlite-obsidian-markdown",
+  "name": "jupyterlite-neme-markdown",
   "version": "1.0.0",
-  "description": "Obsidian-like interactive markdown editor for JupyterLite with LaTeX math menu and table builder",
+  "description": "NeME-like interactive markdown editor for JupyterLite with LaTeX math menu and table builder",
   "keywords": [
     "jupyter",
     "jupyterlab",
     "jupyterlite",
     "jupyterlab-extension",
-    "obsidian",
+    "neme",
     "markdown",
     "katex",
     "latex"
@@ -22,10 +22,10 @@
   ],
   "jupyterlab": {
     "extension": true,
-    "outputDir": "jupyterlite_obsidian_markdown/labextension"
+    "outputDir": "jupyterlite_neme_markdown/labextension"
   },
   "scripts": {
-    "clean": "rimraf lib tsconfig.tsbuildinfo jupyterlite_obsidian_markdown/labextension",
+    "clean": "rimraf lib tsconfig.tsbuildinfo jupyterlite_neme_markdown/labextension",
     "build:lib": "tsc",
     "build:labextension": "python -m jupyter labextension build .",
     "build": "npm run build:lib && python -m jupyter labextension build .",
