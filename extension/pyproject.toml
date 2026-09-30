@@ -3,9 +3,9 @@ requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5"]
 build-backend = "hatchling.build"
 
 [project]
-name = "jupyterlite_obsidian_markdown"
+name = "jupyterlite_neme_markdown"
 version = "1.0.0"
-description = "Obsidian-like interactive markdown editor for JupyterLite"
+description = "NeME-like interactive markdown editor for JupyterLite"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Stefan Merkfuss" }]
 dependencies = [
@@ -13,18 +13,18 @@ dependencies = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["jupyterlite_obsidian_markdown"]
+packages = ["jupyterlite_neme_markdown"]
 
 [tool.hatch.build.targets.wheel.shared-data]
-"jupyterlite_obsidian_markdown/labextension" = "share/jupyter/labextensions/jupyterlite-obsidian-markdown"
+"jupyterlite_neme_markdown/labextension" = "share/jupyter/labextensions/jupyterlite-neme-markdown"
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.5"]
 build-function = "hatch_jupyter_builder.npm_builder"
 ensured-targets = [
-    "jupyterlite_obsidian_markdown/labextension/package.json",
+    "jupyterlite_neme_markdown/labextension/package.json",
 ]
-skip-if-exists = ["jupyterlite_obsidian_markdown/labextension/static/remoteEntry.js"]
+skip-if-exists = ["jupyterlite_neme_markdown/labextension/static/remoteEntry.js"]
 
 [tool.hatch.build.hooks.jupyter-builder.build-kwargs]
 build_cmd = "build:prod"
