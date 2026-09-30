@@ -6,28 +6,28 @@ import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { MarkdownCell } from '@jupyterlab/cells';
 
 /**
- * NEME Live Markdown Extension for JupyterLite
- * Complete NEME-like experience:
- * - Dark NEME Floating Toolbar with SVG icons & dropdowns
+ * NeME Live Markdown Extension for JupyterLite
+ * Complete NeME-like experience:
+ * - Dark NeME Floating Toolbar with SVG icons & dropdowns
  * - Interactive Table Grid Editor (create, edit in-place, alignments, live preview)
  * - Interactive KaTeX Math Formula Builder (chips, live preview, in-place update)
  * - Hover 'Tabelle bearbeiten' on rendered tables & 'Formel bearbeiten' on formulas
- * - NEME Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
+ * - NeME Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
  */
 const extension: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlite-neme-markdown:plugin',
-  description: 'NEME Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
+  description: 'NeME Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
   autoStart: true,
   optional: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker | null) => {
-    console.log('[NEME Extension] Geladen und aktiv!');
+    console.log('[NeME Extension] Geladen und aktiv!');
 
-    // CSS-Stile für NEME Dark Theme verankern
+    // CSS-Stile für NeME Dark Theme verankern
     injectStyles();
     loadKaTeXScript();
 
     // Start-Hinweis
-    showNemeToast('NEME Markdown aktiv!');
+    showNemeToast('NeME Markdown aktiv!');
 
     const setupNotebook = (notebookPanel: NotebookPanel) => {
       if (!notebookPanel || (notebookPanel as any)._obsidianObserved) return;
@@ -45,6 +45,29 @@ const extension: JupyterFrontEndPlugin<void> = {
         }
         setTimeout(() => transformRenderedMarkdown(notebookPanel), 100);
       });
+
+      // Modus-Synchronisation auf Notebook-Ebene (Command Mode vs. Edit Mode)
+      if ((notebookPanel.content as any).stateChanged) {
+        try {
+          (notebookPanel.content as any).stateChanged.connect((_: any, args: any) => {
+            if (args && args.name === 'mode') {
+              const activeCell = notebookPanel.content.activeCell as MarkdownCell | null;
+              if (activeCell && (activeCell.model?.type === 'markdown' || (activeCell as any).cellType === 'markdown' || activeCell.node.classList.contains('jp-MarkdownCell'))) {
+                if (args.newValue === 'edit' && activeCell.rendered === false) {
+                  if ((activeCell as any)._obsidianMode === 'rendered') {
+                    const nextMode = (activeCell as any)._lastEditMode || 'live';
+                    setCellEditorMode(activeCell, nextMode);
+                  }
+                } else if (args.newValue === 'command' && activeCell.rendered) {
+                  if ((activeCell as any)._obsidianMode !== 'rendered') {
+                    setCellEditorMode(activeCell, 'rendered');
+                  }
+                }
+              }
+            }
+          });
+        } catch (_err) {}
+      }
 
       // Beim Rendern oder Ändern von Markdown-Zellen Callouts, Tabellen und Formeln anreichern
       notebookPanel.content.model?.cells.changed.connect(() => {
@@ -103,14 +126,14 @@ const extension: JupyterFrontEndPlugin<void> = {
 };
 
 /**
- * Verankert das vollständige NEME Dark Stylesheet im Browser
+ * Verankert das vollständige NeME Dark Stylesheet im Browser
  */
 function injectStyles(): void {
   if (document.getElementById('obsidian-extension-styles')) return;
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
-    /* Toolbar im NEME Dark Theme - fest verankert DARUNTER */
+    /* Toolbar im NeME Dark Theme - fest verankert DARUNTER */
     .obsidian-markdown-cell .jp-Cell-inputWrapper {
       display: flex !important;
       flex-direction: column !important;
@@ -171,6 +194,12 @@ function injectStyles(): void {
       background: #27272a;
       color: #ffffff;
       border-color: #3f3f46;
+    }
+    .obsidian-tb-btn:disabled,
+    .obsidian-tb-btn[disabled] {
+      opacity: 0.35 !important;
+      cursor: not-allowed !important;
+      pointer-events: none !important;
     }
     .obsidian-tb-btn svg {
       stroke: currentColor;
@@ -343,6 +372,18 @@ function injectStyles(): void {
     .obsidian-preview-body .katex-display,
     .obsidian-preview-body .katex-html {
       color: var(--jp-content-font-color1, inherit) !important;
+    }
+
+    /* Interaktive Checkboxen & Aufgabenlisten */
+    .jp-RenderedMarkdown input[type="checkbox"],
+    .obsidian-preview-body input[type="checkbox"] {
+      cursor: pointer !important;
+      accent-color: #f59e0b !important;
+      pointer-events: auto !important;
+    }
+    .obsidian-task-done {
+      text-decoration: line-through !important;
+      opacity: 0.65 !important;
     }
 
     /* Dropdowns */
@@ -783,7 +824,7 @@ function injectStyles(): void {
       margin-right: 6px;
     }
 
-    /* NEME Variable Inspector Panel */
+    /* NeME Variable Inspector Panel */
     .obsidian-variable-panel {
       position: fixed;
       bottom: 24px;
@@ -1154,6 +1195,53 @@ function formatNemeTableCell(cellText: string): string {
   return res;
 }
 
+function escapeNemeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * Toggelt eine Checkbox [ ] <-> [x] im Markdown-Quelltext basierend auf dem Checkbox-Index
+ */
+function toggleNemeMarkdownCheckbox(markdown: string, targetIndex: number, newChecked?: boolean): string {
+  const lines = markdown.split('\n');
+  let currentCheckboxIndex = 0;
+  let inCodeBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (inCodeBlock) {
+      continue;
+    }
+
+    // Match task list item: - [ ] oder - [x] oder * [ ] oder + [ ] oder 1. [ ]
+    const match = line.match(/^(\s*(?:[-*+]|\d+\.)\s*\[)([ xX])(\]\s*.*)$/);
+    if (match) {
+      if (currentCheckboxIndex === targetIndex) {
+        const isCurrentlyChecked = match[2].toLowerCase() === 'x';
+        const willBeChecked = newChecked !== undefined ? newChecked : !isCurrentlyChecked;
+        lines[i] = match[1] + (willBeChecked ? 'x' : ' ') + match[3];
+        break;
+      }
+      currentCheckboxIndex++;
+    }
+  }
+
+  return lines.join('\n');
+}
+
 /**
  * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
  */
@@ -1167,11 +1255,44 @@ function renderNemeMarkdown(src: string): string {
   const lines = normalizedSrc.split('\n');
   const tablePlaceholders: { [key: string]: string } = {};
   let tableCounter = 0;
+  const codePlaceholders: { [key: string]: string } = {};
+  let codeCounter = 0;
   const processedLines: string[] = [];
 
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // 0. Code-Bloecke (Fenced Blocks mit Triple-Backticks oder Tildes) vorab extrahieren
+    if (trimmedLine.startsWith('```') || trimmedLine.startsWith('~~~')) {
+      const fence = trimmedLine.slice(0, 3);
+      const lang = trimmedLine.slice(3).trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith(fence)) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) {
+        i++; // schliessenden Fence ueberspringen
+      }
+
+      const escapedCode = codeLines.map(cl => escapeNemeHtml(cl)).join('\n');
+      const placeholder = '<!--NeME_CODE_BLOCK_' + (codeCounter++) + '-->';
+      const displayLang = escapeNemeHtml(lang || 'code');
+      const codeHtml = '<div class="obsidian-code-block" style="margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid rgba(128, 128, 128, 0.25); background: #09090b; font-family: monospace;">' +
+        '<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(128, 128, 128, 0.15); font-size: 11px; color: var(--jp-content-font-color2, #a1a1aa); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">' +
+        '<span>' + displayLang + '</span>' +
+        '</div>' +
+        '<pre style="margin: 0; padding: 10px 12px; font-family: monospace; font-size: 12px; line-height: 1.5; color: #f4f4f5; overflow-x: auto; white-space: pre;"><code>' + escapedCode + '</code></pre>' +
+        '</div>';
+
+      codePlaceholders[placeholder] = codeHtml;
+      processedLines.push(placeholder);
+      continue;
+    }
+
     const isTable = i + 1 < lines.length && isNemeTableDelimiter(lines[i + 1]) && (line.includes('|') || line.trim().startsWith('|'));
 
     if (isTable) {
@@ -1211,7 +1332,7 @@ function renderNemeMarkdown(src: string): string {
         }
         tableHtml += '</tbody></table></div>';
 
-        const placeholder = `<!--NEME_TABLE_${tableCounter++}-->`;
+        const placeholder = `<!--NeME_TABLE_${tableCounter++}-->`;
         tablePlaceholders[placeholder] = tableHtml;
         processedLines.push(placeholder);
         continue;
@@ -1235,7 +1356,7 @@ function renderNemeMarkdown(src: string): string {
     return `<span class="obsidian-inline-math-wrapper">${renderKaTeXPreview(tex, false)}</span>`;
   });
 
-  // 3. NEME Callouts (> [!NOTE])
+  // 3. NeME Callouts (> [!NOTE])
   html = html.replace(/(?:^|\n)> ?\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\] ?(.*(?:\n> ?.*)*)/gi, (_, type, content) => {
     const cleanType = type.toUpperCase();
     const cleanContent = content.replace(/\n> ?/g, '<br>');
@@ -1252,12 +1373,26 @@ function renderNemeMarkdown(src: string): string {
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
   html = html.replace(/~~(.*?)~~/g, '<del style="color: var(--jp-content-font-color2, #a1a1aa);">$1</del>');
-  html = html.replace(/`([^`]+)`/g, '<code style="background: rgba(128, 128, 128, 0.14); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.18);">$1</code>');
+  const inlineCodeRegex = new RegExp('\x60([^\x60\n]+)\x60', 'g');
+  html = html.replace(inlineCodeRegex, (_, code) => {
+    return '<code style="background: rgba(128, 128, 128, 0.18); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 12px; color: var(--jp-content-font-color1, #38bdf8); border: 1px solid rgba(128, 128, 128, 0.2);">' + escapeNemeHtml(code) + '</code>';
+  });
 
   // 6. Checklisten & Listen
-  html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
-  html = html.replace(/^- \[ \] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" disabled> <span>$1</span></div>');
-  html = html.replace(/^- (.*$)/gim, '<li style="margin-left: 18px;">$1</li>');
+  let taskCounter = 0;
+  html = html.replace(/^(\s*(?:[-*+]|\d+\.)\s*)\[([ xX])\]\s*(.*$)/gim, (_, prefix, checkChar, text) => {
+    const isChecked = checkChar.toLowerCase() === 'x';
+    const taskIdx = taskCounter++;
+    const indent = Math.min(Math.floor(prefix.length / 2) * 12, 48);
+    const textStyle = isChecked
+      ? 'text-decoration: line-through; color: var(--jp-content-font-color2, #a1a1aa);'
+      : 'color: var(--jp-content-font-color1, inherit);';
+    return '<div class="obsidian-task-item" style="display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; margin-left: ' + indent + 'px;">' +
+      '<input type="checkbox" class="obsidian-task-checkbox" data-task-index="' + taskIdx + '" ' + (isChecked ? 'checked' : '') + ' style="margin-top: 3px; cursor: pointer; accent-color: #f59e0b; width: 14px; height: 14px; flex-shrink: 0;">' +
+      '<span class="obsidian-task-text" style="' + textStyle + '">' + text + '</span>' +
+      '</div>';
+  });
+  html = html.replace(/^(\s*[-*+]\s+)(.*$)/gim, '<li style="margin-left: 18px;">$2</li>');
 
   // Absätze / Newlines
   html = html.replace(/\n\n/g, '<br><br>');
@@ -1267,6 +1402,11 @@ function renderNemeMarkdown(src: string): string {
     html = html.replace(placeholder, tablePlaceholders[placeholder]);
   }
 
+  // Code-Block-Platzhalter wiederherstellen
+  for (const placeholder in codePlaceholders) {
+    html = html.replace(placeholder, codePlaceholders[placeholder]);
+  }
+
   return html;
 }
 
@@ -1274,24 +1414,63 @@ function updateActivePreview(cell: MarkdownCell): void {
   const mode = (cell as any)._obsidianMode;
   const src = cell.model.sharedModel.getSource();
 
+  const bindCheckboxes = (previewBody: HTMLElement) => {
+    previewBody.querySelectorAll<HTMLInputElement>('.obsidian-task-checkbox').forEach(cb => {
+      cb.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const taskIdx = parseInt(cb.getAttribute('data-task-index') || '0', 10);
+        const currentSrc = cell.model.sharedModel.getSource();
+        const updated = toggleNemeMarkdownCheckbox(currentSrc, taskIdx, cb.checked);
+        if (updated !== currentSrc) {
+          cell.model.sharedModel.setSource(updated);
+        }
+      });
+    });
+  };
+
   if (mode === 'split') {
-    const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body');
+    const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body') as HTMLElement | null;
     if (preview) {
       preview.innerHTML = renderNemeMarkdown(src);
+      bindCheckboxes(preview);
     }
   } else if (mode === 'live') {
-    const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body');
+    const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body') as HTMLElement | null;
     if (preview) {
       preview.innerHTML = renderNemeMarkdown(src);
+      bindCheckboxes(preview);
     }
   }
 }
 
+function updateToolbarDisabledState(toolbar: HTMLElement, isRendered: boolean): void {
+  toolbar.querySelectorAll<HTMLButtonElement>('[data-action], .obsidian-dropdown-toggle').forEach(btn => {
+    btn.disabled = isRendered;
+    if (isRendered) {
+      if (!btn.hasAttribute('data-original-title')) {
+        btn.setAttribute('data-original-title', btn.getAttribute('title') || '');
+      }
+      btn.setAttribute('title', 'Formatierung im Lesemodus deaktiviert');
+    } else {
+      const orig = btn.getAttribute('data-original-title');
+      if (orig) btn.setAttribute('title', orig);
+    }
+  });
+}
+
 function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source' | 'rendered'): void {
   (cell as any)._obsidianMode = mode;
+  if (mode !== 'rendered') {
+    (cell as any)._lastEditMode = mode;
+  }
 
   // Toolbar Button-Zustände synchronisieren
-  const toolbar = cell.node.querySelector('.obsidian-floating-toolbar');
+  const toolbar = (cell.node.querySelector('.obsidian-floating-toolbar') ||
+                   cell.node.closest('.jp-Notebook')?.querySelector('.obsidian-floating-toolbar') ||
+                   document.querySelector('.obsidian-floating-toolbar')) as HTMLElement | null;
   if (toolbar) {
     toolbar.querySelectorAll('.obsidian-tb-mode-btn').forEach(btn => {
       if (btn.getAttribute('data-mode') === mode) {
@@ -1300,6 +1479,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
         btn.classList.remove('active');
       }
     });
+    updateToolbarDisabledState(toolbar, mode === 'rendered');
   }
 
   const editorNode = cell.node.querySelector('.jp-Cell-inputArea') as HTMLElement | null;
@@ -1395,7 +1575,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
 }
 
 /**
- * Hängt die vollständige NEME Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
+ * Hängt die vollständige NeME Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
  */
 function attachNemeToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
@@ -1412,10 +1592,18 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   const toolbar = document.createElement('div');
   toolbar.className = 'obsidian-floating-toolbar';
 
-  const curMode = (cell as any)._obsidianMode || 'rendered';
+  // Intelligente Modus-Erkennung: Falls Zelle editiert wird (!cell.rendered), nicht auf 'rendered' verharren
+  let curMode = (cell as any)._obsidianMode;
+  if (!curMode) {
+    curMode = cell.rendered ? 'rendered' : ((cell as any)._lastEditMode || 'live');
+    (cell as any)._obsidianMode = curMode;
+  } else if (!cell.rendered && curMode === 'rendered') {
+    curMode = (cell as any)._lastEditMode || 'live';
+    (cell as any)._obsidianMode = curMode;
+  }
 
   toolbar.innerHTML = `
-    <div class="obsidian-tb-brand">NEME</div>
+    <div class="obsidian-tb-brand">NeME</div>
 
     <!-- Überschriften Dropdown -->
     <div class="obsidian-dropdown-container">
@@ -1477,7 +1665,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
 
     <!-- Callouts Dropdown -->
     <div class="obsidian-dropdown-container">
-      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="NEME Callouts">
+      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="NeME Callouts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
         <span>Callout</span>
       </button>
@@ -1517,6 +1705,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   toolbar.querySelectorAll('.obsidian-dropdown-toggle').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if ((cell as any)._obsidianMode === 'rendered' || cell.rendered) return;
       const parent = btn.closest('.obsidian-dropdown-container');
       const menu = parent?.querySelector('.obsidian-dropdown-menu');
       document.querySelectorAll('.obsidian-dropdown-menu').forEach(m => {
@@ -1550,6 +1739,39 @@ function attachNemeToolbar(cell: MarkdownCell): void {
       handleToolbarAction(cell, action);
     });
   });
+
+  // Toolbar Buttons deaktivieren wenn Zelle im Lesemodus ist
+  updateToolbarDisabledState(toolbar, curMode === 'rendered');
+
+  // Synchronisation NUR bei Doppelklick (Capturing Phase, bevor JupyterLab event.stopPropagation ausführt!)
+  if (!(cell as any)._obsidianDblClickAttached) {
+    (cell as any)._obsidianDblClickAttached = true;
+    cell.node.addEventListener('dblclick', (e) => {
+      // Nicht auslösen wenn direkt auf Toolbar-Buttons geklickt wurde
+      if ((e.target as HTMLElement)?.closest('.obsidian-floating-toolbar')) return;
+      setTimeout(() => {
+        if ((cell as any)._obsidianMode === 'rendered') {
+          const nextMode = (cell as any)._lastEditMode || 'live';
+          setCellEditorMode(cell, nextMode);
+        }
+      }, 50);
+    }, true);
+  }
+
+  // Tastatur-Enter Erkennung (JupyterLab Command Mode -> Edit Mode bei Tastendruck Enter)
+  if (!(cell as any)._obsidianEnterAttached) {
+    (cell as any)._obsidianEnterAttached = true;
+    cell.node.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setTimeout(() => {
+          if ((cell as any)._obsidianMode === 'rendered') {
+            const nextMode = (cell as any)._lastEditMode || 'live';
+            setCellEditorMode(cell, nextMode);
+          }
+        }, 50);
+      }
+    });
+  }
 
   // Fest DARUNTER an den inputWrapper anheften
   inputWrapper.appendChild(toolbar);
@@ -1642,6 +1864,7 @@ function clearFormattingInCell(cell: MarkdownCell): void {
 
 function handleToolbarAction(cell: MarkdownCell, action: string | null): void {
   if (!action) return;
+  if (cell.rendered || (cell as any)._obsidianMode === 'rendered') return;
 
   switch (action) {
     case 'h1': insertLinePrefix(cell, '# '); break;
@@ -2395,7 +2618,7 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       }
     });
 
-    // 3. NEME Callouts stylen
+    // 3. NeME Callouts stylen
     renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
       const p = bq.querySelector('p');
       if (!p) return;
@@ -2407,12 +2630,59 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
         p.innerHTML = `<div class="obsidian-callout-header"><span class="obsidian-callout-badge">${type}</span> <strong>${title}</strong></div>` + p.innerHTML.replace(/^\[!.*?\]/, '');
       }
     });
+
+    // 4. Checkbox-Listen in gerenderten Markdown-Zellen interaktiv schalten
+    const checkboxes = Array.from(renderedArea.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    checkboxes.forEach((cb, cbIdx) => {
+      cb.disabled = false;
+      cb.removeAttribute('disabled');
+      cb.style.cursor = 'pointer';
+      cb.style.pointerEvents = 'auto';
+      cb.style.accentColor = '#f59e0b';
+
+      const parentLi = cb.closest('li') || cb.parentElement;
+      if (parentLi) {
+        if (cb.checked) {
+          parentLi.classList.add('obsidian-task-done');
+        } else {
+          parentLi.classList.remove('obsidian-task-done');
+        }
+      }
+
+      if (!cb.classList.contains('obsidian-processed')) {
+        cb.classList.add('obsidian-processed');
+
+        // Mousedown und Click stoppen, damit die Zelle nicht in den Editiermodus springt
+        cb.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+        });
+        cb.addEventListener('click', (e) => {
+          e.stopPropagation();
+        });
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const currentSrc = cell.model.sharedModel.getSource();
+          const updatedSrc = toggleNemeMarkdownCheckbox(currentSrc, cbIdx, cb.checked);
+          if (updatedSrc !== currentSrc) {
+            cell.model.sharedModel.setSource(updatedSrc);
+            const pLi = cb.closest('li') || cb.parentElement;
+            if (pLi) {
+              if (cb.checked) {
+                pLi.classList.add('obsidian-task-done');
+              } else {
+                pLi.classList.remove('obsidian-task-done');
+              }
+            }
+          }
+        });
+      }
+    });
   });
 }
 
 /**
  * =========================================================================
- * NEME Kernel Variable Inspector
+ * NeME Kernel Variable Inspector
  * Fragt den aktuellen Python-Kernel (IPython/Pyodide) im Hintergrund
  * lautlos ('silent: true', 'store_history: false') ab und stellt
  * die Variablen in einer strukturierten Tabelle dar.
@@ -2429,7 +2699,7 @@ function attachVariableInspectorButton(notebookPanel: NotebookPanel): void {
   const toolbar = notebookPanel.toolbar?.node;
   const btn = document.createElement('button');
   btn.className = 'jp-ToolbarButtonComponent obsidian-toolbar-var-btn';
-  btn.title = 'NEME Variablen-Inspektor (Kernel)';
+  btn.title = 'NeME Variablen-Inspektor (Kernel)';
   btn.innerHTML = `
     <span class="jp-ToolbarButtonComponent-icon">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -2576,9 +2846,9 @@ try:
                 _val = '<Preview unavailable>'
             _res.append({'name': str(_k), 'type': str(_t), 'shape': str(_s), 'value': str(_val)})
         return _res
-    print('__NEME_VARS_JSON__' + json.dumps(_neme_get_vars()) + '__NEME_VARS_END__')
+    print('__NeME_VARS_JSON__' + json.dumps(_neme_get_vars()) + '__NeME_VARS_END__')
 except Exception as _e:
-    print('__NEME_VARS_JSON__[]__NEME_VARS_END__')
+    print('__NeME_VARS_JSON__[]__NeME_VARS_END__')
 `;
 
   try {
@@ -2591,8 +2861,8 @@ except Exception as _e:
     future.onIOPub = (msg: any) => {
       if (msg.header.msg_type === 'stream') {
         const text = msg.content?.text || '';
-        if (text.includes('__NEME_VARS_JSON__')) {
-          const match = text.match(/__NEME_VARS_JSON__(.*?)__NEME_VARS_END__/s);
+        if (text.includes('__NeME_VARS_JSON__')) {
+          const match = text.match(/__NeME_VARS_JSON__(.*?)__NeME_VARS_END__/s);
           if (match && match[1]) {
             try {
               const vars = JSON.parse(match[1]);
