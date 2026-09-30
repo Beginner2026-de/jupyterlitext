@@ -374,6 +374,18 @@ function injectStyles(): void {
       color: var(--jp-content-font-color1, inherit) !important;
     }
 
+    /* Interaktive Checkboxen & Aufgabenlisten */
+    .jp-RenderedMarkdown input[type="checkbox"],
+    .obsidian-preview-body input[type="checkbox"] {
+      cursor: pointer !important;
+      accent-color: #f59e0b !important;
+      pointer-events: auto !important;
+    }
+    .obsidian-task-done {
+      text-decoration: line-through !important;
+      opacity: 0.65 !important;
+    }
+
     /* Dropdowns */
     .obsidian-dropdown-container {
       position: relative;
@@ -1194,6 +1206,43 @@ function escapeNemeHtml(str: string): string {
 }
 
 /**
+ * Toggelt eine Checkbox [ ] <-> [x] im Markdown-Quelltext basierend auf dem Checkbox-Index
+ */
+function toggleNemeMarkdownCheckbox(markdown: string, targetIndex: number, newChecked?: boolean): string {
+  const lines = markdown.split('\n');
+  let currentCheckboxIndex = 0;
+  let inCodeBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inCodeBlock = !inCodeBlock;
+      continue;
+    }
+
+    if (inCodeBlock) {
+      continue;
+    }
+
+    // Match task list item: - [ ] oder - [x] oder * [ ] oder + [ ] oder 1. [ ]
+    const match = line.match(/^(\s*(?:[-*+]|\d+\.)\s*\[)([ xX])(\]\s*.*)$/);
+    if (match) {
+      if (currentCheckboxIndex === targetIndex) {
+        const isCurrentlyChecked = match[2].toLowerCase() === 'x';
+        const willBeChecked = newChecked !== undefined ? newChecked : !isCurrentlyChecked;
+        lines[i] = match[1] + (willBeChecked ? 'x' : ' ') + match[3];
+        break;
+      }
+      currentCheckboxIndex++;
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
  * Live Markdown & KaTeX Renderer für die Split- und Live-Preview
  */
 function renderNemeMarkdown(src: string): string {
@@ -1330,9 +1379,20 @@ function renderNemeMarkdown(src: string): string {
   });
 
   // 6. Checklisten & Listen
-  html = html.replace(/^- \[x\] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" checked disabled> <span style="text-decoration: line-through; color: #a1a1aa;">$1</span></div>');
-  html = html.replace(/^- \[ \] (.*$)/gim, '<div style="display: flex; align-items: center; gap: 6px; margin: 3px 0;"><input type="checkbox" disabled> <span>$1</span></div>');
-  html = html.replace(/^- (.*$)/gim, '<li style="margin-left: 18px;">$1</li>');
+  let taskCounter = 0;
+  html = html.replace(/^(\s*(?:[-*+]|\d+\.)\s*)\[([ xX])\]\s*(.*$)/gim, (_, prefix, checkChar, text) => {
+    const isChecked = checkChar.toLowerCase() === 'x';
+    const taskIdx = taskCounter++;
+    const indent = Math.min(Math.floor(prefix.length / 2) * 12, 48);
+    const textStyle = isChecked
+      ? 'text-decoration: line-through; color: var(--jp-content-font-color2, #a1a1aa);'
+      : 'color: var(--jp-content-font-color1, inherit);';
+    return '<div class="obsidian-task-item" style="display: flex; align-items: flex-start; gap: 8px; margin: 3px 0; margin-left: ' + indent + 'px;">' +
+      '<input type="checkbox" class="obsidian-task-checkbox" data-task-index="' + taskIdx + '" ' + (isChecked ? 'checked' : '') + ' style="margin-top: 3px; cursor: pointer; accent-color: #f59e0b; width: 14px; height: 14px; flex-shrink: 0;">' +
+      '<span class="obsidian-task-text" style="' + textStyle + '">' + text + '</span>' +
+      '</div>';
+  });
+  html = html.replace(/^(\s*[-*+]\s+)(.*$)/gim, '<li style="margin-left: 18px;">$2</li>');
 
   // Absätze / Newlines
   html = html.replace(/\n\n/g, '<br><br>');
@@ -1354,15 +1414,34 @@ function updateActivePreview(cell: MarkdownCell): void {
   const mode = (cell as any)._obsidianMode;
   const src = cell.model.sharedModel.getSource();
 
+  const bindCheckboxes = (previewBody: HTMLElement) => {
+    previewBody.querySelectorAll<HTMLInputElement>('.obsidian-task-checkbox').forEach(cb => {
+      cb.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const taskIdx = parseInt(cb.getAttribute('data-task-index') || '0', 10);
+        const currentSrc = cell.model.sharedModel.getSource();
+        const updated = toggleNemeMarkdownCheckbox(currentSrc, taskIdx, cb.checked);
+        if (updated !== currentSrc) {
+          cell.model.sharedModel.setSource(updated);
+        }
+      });
+    });
+  };
+
   if (mode === 'split') {
-    const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body');
+    const preview = cell.node.querySelector('.obsidian-split-preview .obsidian-preview-body') as HTMLElement | null;
     if (preview) {
       preview.innerHTML = renderNemeMarkdown(src);
+      bindCheckboxes(preview);
     }
   } else if (mode === 'live') {
-    const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body');
+    const preview = cell.node.querySelector('.obsidian-live-preview .obsidian-preview-body') as HTMLElement | null;
     if (preview) {
       preview.innerHTML = renderNemeMarkdown(src);
+      bindCheckboxes(preview);
     }
   }
 }
@@ -2549,6 +2628,53 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
         const title = match[2].trim() || type;
         bq.classList.add('obsidian-callout', `obsidian-callout-${type.toLowerCase()}`);
         p.innerHTML = `<div class="obsidian-callout-header"><span class="obsidian-callout-badge">${type}</span> <strong>${title}</strong></div>` + p.innerHTML.replace(/^\[!.*?\]/, '');
+      }
+    });
+
+    // 4. Checkbox-Listen in gerenderten Markdown-Zellen interaktiv schalten
+    const checkboxes = Array.from(renderedArea.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+    checkboxes.forEach((cb, cbIdx) => {
+      cb.disabled = false;
+      cb.removeAttribute('disabled');
+      cb.style.cursor = 'pointer';
+      cb.style.pointerEvents = 'auto';
+      cb.style.accentColor = '#f59e0b';
+
+      const parentLi = cb.closest('li') || cb.parentElement;
+      if (parentLi) {
+        if (cb.checked) {
+          parentLi.classList.add('obsidian-task-done');
+        } else {
+          parentLi.classList.remove('obsidian-task-done');
+        }
+      }
+
+      if (!cb.classList.contains('obsidian-processed')) {
+        cb.classList.add('obsidian-processed');
+
+        // Mousedown und Click stoppen, damit die Zelle nicht in den Editiermodus springt
+        cb.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+        });
+        cb.addEventListener('click', (e) => {
+          e.stopPropagation();
+        });
+        cb.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const currentSrc = cell.model.sharedModel.getSource();
+          const updatedSrc = toggleNemeMarkdownCheckbox(currentSrc, cbIdx, cb.checked);
+          if (updatedSrc !== currentSrc) {
+            cell.model.sharedModel.setSource(updatedSrc);
+            const pLi = cb.closest('li') || cb.parentElement;
+            if (pLi) {
+              if (cb.checked) {
+                pLi.classList.add('obsidian-task-done');
+              } else {
+                pLi.classList.remove('obsidian-task-done');
+              }
+            }
+          }
+        });
       }
     });
   });
