@@ -6,28 +6,28 @@ import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import { MarkdownCell } from '@jupyterlab/cells';
 
 /**
- * NEME Live Markdown Extension for JupyterLite
- * Complete NEME-like experience:
- * - Dark NEME Floating Toolbar with SVG icons & dropdowns
+ * NeME Live Markdown Extension for JupyterLite
+ * Complete NeME-like experience:
+ * - Dark NeME Floating Toolbar with SVG icons & dropdowns
  * - Interactive Table Grid Editor (create, edit in-place, alignments, live preview)
  * - Interactive KaTeX Math Formula Builder (chips, live preview, in-place update)
  * - Hover 'Tabelle bearbeiten' on rendered tables & 'Formel bearbeiten' on formulas
- * - NEME Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
+ * - NeME Callout styler (> [!NOTE], [!TIP], [!WARNING], [!CAUTION], [!IMPORTANT])
  */
 const extension: JupyterFrontEndPlugin<void> = {
   id: 'jupyterlite-neme-markdown:plugin',
-  description: 'NEME Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
+  description: 'NeME Markdown Toolbar, Interactive Tables, Math Formula Editor and Callouts for JupyterLite',
   autoStart: true,
   optional: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker | null) => {
-    console.log('[NEME Extension] Geladen und aktiv!');
+    console.log('[NeME Extension] Geladen und aktiv!');
 
-    // CSS-Stile für NEME Dark Theme verankern
+    // CSS-Stile für NeME Dark Theme verankern
     injectStyles();
     loadKaTeXScript();
 
     // Start-Hinweis
-    showNemeToast('NEME Markdown aktiv!');
+    showNemeToast('NeME Markdown aktiv!');
 
     const setupNotebook = (notebookPanel: NotebookPanel) => {
       if (!notebookPanel || (notebookPanel as any)._obsidianObserved) return;
@@ -126,14 +126,14 @@ const extension: JupyterFrontEndPlugin<void> = {
 };
 
 /**
- * Verankert das vollständige NEME Dark Stylesheet im Browser
+ * Verankert das vollständige NeME Dark Stylesheet im Browser
  */
 function injectStyles(): void {
   if (document.getElementById('obsidian-extension-styles')) return;
   const styleEl = document.createElement('style');
   styleEl.id = 'obsidian-extension-styles';
   styleEl.textContent = `
-    /* Toolbar im NEME Dark Theme - fest verankert DARUNTER */
+    /* Toolbar im NeME Dark Theme - fest verankert DARUNTER */
     .obsidian-markdown-cell .jp-Cell-inputWrapper {
       display: flex !important;
       flex-direction: column !important;
@@ -824,7 +824,7 @@ function injectStyles(): void {
       margin-right: 6px;
     }
 
-    /* NEME Variable Inspector Panel */
+    /* NeME Variable Inspector Panel */
     .obsidian-variable-panel {
       position: fixed;
       bottom: 24px;
@@ -1279,7 +1279,7 @@ function renderNemeMarkdown(src: string): string {
       }
 
       const escapedCode = codeLines.map(cl => escapeNemeHtml(cl)).join('\n');
-      const placeholder = '<!--NEME_CODE_BLOCK_' + (codeCounter++) + '-->';
+      const placeholder = '<!--NeME_CODE_BLOCK_' + (codeCounter++) + '-->';
       const displayLang = escapeNemeHtml(lang || 'code');
       const codeHtml = '<div class="obsidian-code-block" style="margin: 8px 0; border-radius: 6px; overflow: hidden; border: 1px solid rgba(128, 128, 128, 0.25); background: #09090b; font-family: monospace;">' +
         '<div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(128, 128, 128, 0.15); font-size: 11px; color: var(--jp-content-font-color2, #a1a1aa); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">' +
@@ -1332,7 +1332,7 @@ function renderNemeMarkdown(src: string): string {
         }
         tableHtml += '</tbody></table></div>';
 
-        const placeholder = `<!--NEME_TABLE_${tableCounter++}-->`;
+        const placeholder = `<!--NeME_TABLE_${tableCounter++}-->`;
         tablePlaceholders[placeholder] = tableHtml;
         processedLines.push(placeholder);
         continue;
@@ -1356,7 +1356,7 @@ function renderNemeMarkdown(src: string): string {
     return `<span class="obsidian-inline-math-wrapper">${renderKaTeXPreview(tex, false)}</span>`;
   });
 
-  // 3. NEME Callouts (> [!NOTE])
+  // 3. NeME Callouts (> [!NOTE])
   html = html.replace(/(?:^|\n)> ?\[!(NOTE|TIP|WARNING|CAUTION|IMPORTANT|INFO|DANGER|INSIGHT|EQUATION)\] ?(.*(?:\n> ?.*)*)/gi, (_, type, content) => {
     const cleanType = type.toUpperCase();
     const cleanContent = content.replace(/\n> ?/g, '<br>');
@@ -1575,7 +1575,7 @@ function setCellEditorMode(cell: MarkdownCell, mode: 'live' | 'split' | 'source'
 }
 
 /**
- * Hängt die vollständige NEME Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
+ * Hängt die vollständige NeME Dark Toolbar an die aktive Markdown-Zelle (darunter verankert)
  */
 function attachNemeToolbar(cell: MarkdownCell): void {
   cell.node.classList.add('obsidian-markdown-cell');
@@ -1603,7 +1603,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
   }
 
   toolbar.innerHTML = `
-    <div class="obsidian-tb-brand">NEME</div>
+    <div class="obsidian-tb-brand">NeME</div>
 
     <!-- Überschriften Dropdown -->
     <div class="obsidian-dropdown-container">
@@ -1665,7 +1665,7 @@ function attachNemeToolbar(cell: MarkdownCell): void {
 
     <!-- Callouts Dropdown -->
     <div class="obsidian-dropdown-container">
-      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="NEME Callouts">
+      <button class="obsidian-tb-btn obsidian-dropdown-toggle" title="NeME Callouts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
         <span>Callout</span>
       </button>
@@ -2618,7 +2618,7 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
       }
     });
 
-    // 3. NEME Callouts stylen
+    // 3. NeME Callouts stylen
     renderedArea.querySelectorAll('blockquote:not(.obsidian-callout)').forEach(bq => {
       const p = bq.querySelector('p');
       if (!p) return;
@@ -2682,7 +2682,7 @@ function transformRenderedMarkdown(notebookPanel: NotebookPanel): void {
 
 /**
  * =========================================================================
- * NEME Kernel Variable Inspector
+ * NeME Kernel Variable Inspector
  * Fragt den aktuellen Python-Kernel (IPython/Pyodide) im Hintergrund
  * lautlos ('silent: true', 'store_history: false') ab und stellt
  * die Variablen in einer strukturierten Tabelle dar.
@@ -2699,7 +2699,7 @@ function attachVariableInspectorButton(notebookPanel: NotebookPanel): void {
   const toolbar = notebookPanel.toolbar?.node;
   const btn = document.createElement('button');
   btn.className = 'jp-ToolbarButtonComponent obsidian-toolbar-var-btn';
-  btn.title = 'NEME Variablen-Inspektor (Kernel)';
+  btn.title = 'NeME Variablen-Inspektor (Kernel)';
   btn.innerHTML = `
     <span class="jp-ToolbarButtonComponent-icon">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -2846,9 +2846,9 @@ try:
                 _val = '<Preview unavailable>'
             _res.append({'name': str(_k), 'type': str(_t), 'shape': str(_s), 'value': str(_val)})
         return _res
-    print('__NEME_VARS_JSON__' + json.dumps(_neme_get_vars()) + '__NEME_VARS_END__')
+    print('__NeME_VARS_JSON__' + json.dumps(_neme_get_vars()) + '__NeME_VARS_END__')
 except Exception as _e:
-    print('__NEME_VARS_JSON__[]__NEME_VARS_END__')
+    print('__NeME_VARS_JSON__[]__NeME_VARS_END__')
 `;
 
   try {
@@ -2861,8 +2861,8 @@ except Exception as _e:
     future.onIOPub = (msg: any) => {
       if (msg.header.msg_type === 'stream') {
         const text = msg.content?.text || '';
-        if (text.includes('__NEME_VARS_JSON__')) {
-          const match = text.match(/__NEME_VARS_JSON__(.*?)__NEME_VARS_END__/s);
+        if (text.includes('__NeME_VARS_JSON__')) {
+          const match = text.match(/__NeME_VARS_JSON__(.*?)__NeME_VARS_END__/s);
           if (match && match[1]) {
             try {
               const vars = JSON.parse(match[1]);
